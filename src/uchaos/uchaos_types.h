@@ -14,7 +14,7 @@ typedef enum
     SENSOR,
     PROTOCOL,
     NETWORK,
-} chaos_faultsGroups_t;
+} uChaos_FaultsGroups_t;
 
 typedef enum 
 {
@@ -25,14 +25,14 @@ typedef enum
     DATA_SPIKE,
     OFFSET,
     STUCK_AT_VALUE
-} chaos_sensorFaultsTypes_t;
+} uChaos_SensorFaultsTypes_t;
 
 typedef struct
 {
     char* name;
-    chaos_sensorFaultsTypes_t faultType;
+    uChaos_SensorFaultsTypes_t faultType;
     uint8_t paramsNbr;
     uint32_t* params;
-}chaos_sensorFault_t;
+} uChaos_SensorFault_t;
 
 #endif

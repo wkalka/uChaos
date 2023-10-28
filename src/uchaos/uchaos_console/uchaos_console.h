@@ -9,6 +9,9 @@
 #include <stdlib.h>
 
 #include "../uchaos_types.h"
+#include "../uchaos_defs.h"
+#include "../uchaos_sensor/uchaos_sensor.h"
+
 
 #define UART_DEV_NODE                   DT_NODELABEL(uart0)
 #define CHAOS_CONSOLE_MSG_SIZE          32
@@ -19,17 +22,18 @@
 #define DIGITS_ASCII_START		        48
 #define DIGITS_ASCII_END		        57
 
-chaos_sensorFault_t* chaos_consoleGetFaultsData(void);
+uChaos_SensorFault_t* chaos_consoleGetFaultsData(void);
 
 void chaos_consoleInit(void);
 void chaos_consoleThread(void* arg1, void* arg2, void* arg3);
 void chaos_consoleThreadFunction(uint32_t sleep_ms, uint32_t id);
 
-void chaos_consoleCheckCommand(uint8_t* buf);
 bool chaos_consoleSearchForCommand(uint8_t* buf);
 bool chaos_consoleParseCommand(uint8_t* buf);
+bool chaos_consoleSearchForSensorName(uint8_t* buf);
+void chaos_consoleCheckCommand(uint8_t* buf);
 
 void chaos_clearConsoleRxBuff(void);
-chaos_sensorFaultsTypes_t chaos_getFaultType(void);
+uChaos_SensorFaultsTypes_t chaos_getFaultType(void);
 
 #endif

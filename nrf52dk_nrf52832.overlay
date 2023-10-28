@@ -12,7 +12,17 @@
 // You can also visit the nRF DeviceTree extension documentation at https://nrfconnect.github.io/vscode-nrf-connect/devicetree/nrfdevicetree.html
 
 / {
-	zephyr,user {
-		io-channels = <&adc 9>;
-	 };
+	// zephyr,user {
+	// 	io-channels = <&adc 9>;
+	//  };
+};
+
+&i2c0 {
+	compatible = "nordic,nrf-twi";
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+	adxl345@53 {
+		compatible = "adi,adxl345";
+		reg = <0x53>;
+	};
 };

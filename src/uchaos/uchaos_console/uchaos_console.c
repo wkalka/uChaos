@@ -1,6 +1,6 @@
 #include "uchaos_console.h"
 
-chaos_sensorFault_t _sensorFaults[] = 
+uChaos_SensorFault_t _sensorFaults[] = 
 {
     {"none", NONE, 0, NULL},
     {"connection", CONNECTION, 2, NULL},
@@ -20,9 +20,9 @@ k_tid_t chaos_consoleThread_tid;
 
 static uint8_t consoleRxBuf[CHAOS_CONSOLE_MSG_SIZE];
 static uint16_t consoleRxBufBytesNbr = 0;
-static chaos_sensorFaultsTypes_t currentFault = NONE;
+uChaosSensor_t* currentSensor = NULL;
 
-chaos_sensorFault_t* sensorFaults = _sensorFaults;
+uChaos_SensorFault_t* sensorFaults = _sensorFaults;
 
 static void _chaos_consoleCallback(const struct device *dev, void *userData)
 {
@@ -47,14 +47,14 @@ static void _chaos_consoleCallback(const struct device *dev, void *userData)
 }
 
 
-chaos_sensorFault_t* chaos_consoleGetFaultsData(void)
+uChaos_SensorFault_t* chaos_consoleGetFaultsData(void)
 {
     return sensorFaults;
 }
 
 void chaos_consoleInit(void)
 {
-    for (uint8_t i = 0; i < (sizeof(_sensorFaults) / sizeof(chaos_sensorFault_t)); i++)
+    for (uint8_t i = 0; i < (sizeof(_sensorFaults) / sizeof(uChaos_SensorFault_t)); i++)
     {
         if (_sensorFaults[i].paramsNbr > 0)
         {
@@ -95,11 +95,11 @@ void chaos_consoleThreadFunction(uint32_t sleep_ms, uint32_t id)
 
 bool chaos_consoleSearchForCommand(uint8_t* buf)
 {
-    for (uint8_t i = 0; i < (sizeof(_sensorFaults) / sizeof(chaos_sensorFault_t)); i++)
+    for (uint8_t i = 0; i < (sizeof(_sensorFaults) / sizeof(uChaos_SensorFault_t)); i++)
     {
         if (strcmp(_sensorFaults[i].name, buf) == 0)
         {
-            currentFault = _sensorFaults[i].faultType;
+            currentSensor->sensorFault.faultType = _sensorFaults[i].faultType;
             printk("%s recognized\n", (const char*)_sensorFaults[i].name);
             return true;
         }
@@ -123,9 +123,9 @@ bool chaos_consoleParseCommand(uint8_t* buf)
 			if (digitsCount > 0)
 			{
 				paramValue = (int32_t)atoi((const char*)paramDigits);
-				if (paramValue && (paramsFound < _sensorFaults[currentFault].paramsNbr))
+				if (paramValue && (paramsFound < _sensorFaults[currentSensor->sensorFault.faultType].paramsNbr))
 				{
-					_sensorFaults[currentFault].params[paramsFound] = paramValue;
+					_sensorFaults[currentSensor->sensorFault.faultType].params[paramsFound] = paramValue;
 				}
 				paramsFound++;
 				digitsCount = 0;
@@ -149,8 +149,26 @@ bool chaos_consoleParseCommand(uint8_t* buf)
 		if (i == CHAOS_CONSOLE_MSG_SIZE) { break; }
 	}
 
-	if (paramsFound == _sensorFaults[currentFault].paramsNbr) { return true; }
+	if (paramsFound == _sensorFaults[currentSensor->sensorFault.faultType].paramsNbr)
+    {
+        currentSensor->sensorFault = _sensorFaults[currentSensor->sensorFault.faultType];
+        return true;
+    }
 	else { return false; }
+}
+
+bool chaos_consoleSearchForSensorName(uint8_t* buf)
+{
+    for (uint8_t i = 0;  i < UCHAOS_SENSORS_NUMBER; i++)
+    {
+        if (strcmp((uChaosSensor_GetSensor() + i)->name, buf) == 0)
+        {
+            currentSensor = (uChaosSensor_GetSensor() + i);
+            printk("Sensor recognized: %s\n", (const char*)currentSensor->name);
+            return true;
+        }
+    }
+    return false;
 }
 
 void chaos_consoleCheckCommand(uint8_t* buf)
@@ -163,17 +181,28 @@ void chaos_consoleCheckCommand(uint8_t* buf)
         dataBuf[i] = buf[i];
         i++;
     }
-
-    if (chaos_consoleSearchForCommand(dataBuf))
+    if (!chaos_consoleSearchForSensorName(dataBuf))
+    {
+        printk("ERROR: Sensor name not found\n");
+        return;
+    }
+    i++;
+    uint8_t nextWordStart = i;
+    while ((i < (CHAOS_CONSOLE_MSG_SIZE - 1)) && (buf[i] != ' ') && (buf[i] != '\0'))
+    {
+        dataBuf[i] = buf[i];
+        i++;
+    }
+    if (chaos_consoleSearchForCommand(&dataBuf[nextWordStart]))
     {
         if (!chaos_consoleParseCommand(&buf[i]))
         {
-            printk("Incorrect command\n");    
+            printk("ERROR: Incorrect command\n");    
         }
     }
     else
     {
-        printk("Incorrect command\n");
+        printk("ERROR: Incorrect command\n");
     }
 }
 
@@ -184,7 +213,14 @@ void chaos_clearConsoleRxBuff(void)
 }
 
 
-chaos_sensorFaultsTypes_t chaos_getFaultType(void)
+uChaos_SensorFaultsTypes_t chaos_getFaultType(void)
 {
-    return currentFault;
+    if (currentSensor != NULL)
+    {
+        return currentSensor->sensorFault.faultType;
+    }
+    else
+    {
+        return NONE;
+    }
 }
