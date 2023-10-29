@@ -8,11 +8,13 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/rand32.h>
 
+#include "uchaos_defs.h"
+
 typedef enum
 {
-    HARDWARE,
     SENSOR,
-    PROTOCOL,
+    CPU,
+    MEMORY,
     NETWORK,
 } uChaos_FaultsGroups_t;
 
@@ -29,7 +31,7 @@ typedef enum
 
 typedef struct
 {
-    char* name;
+    char name[UCHAOS_FAULT_NAME_LEN];
     uChaos_SensorFaultsTypes_t faultType;
     uint8_t paramsNbr;
     uint32_t* params;

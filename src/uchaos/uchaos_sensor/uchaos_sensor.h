@@ -36,6 +36,7 @@ void uChaosSensor_Init(const char* name, const struct device* dev);
 int uChaosSensor_ChannelGet(const struct device* dev, enum sensor_channel chan, struct sensor_value* val);
 
 uChaosSensor_t* uChaosSensor_GetSensor(void);
+void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_SensorFault_t* fault);
 
 bool uChaosSensor_Connection(void);
 void uChaosSensor_Noise(struct sensor_value* sensorValue);

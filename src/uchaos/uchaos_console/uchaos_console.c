@@ -1,5 +1,13 @@
 #include "uchaos_console.h"
 
+
+K_MSGQ_DEFINE(console_msgq, CHAOS_CONSOLE_MSG_SIZE, CHAOS_CONSOLE_QUEUE_SIZE, 4);
+K_THREAD_STACK_DEFINE(chaos_consoleThread_stack_area, CHAOS_CONSOLE_THREAD_STACKSIZE);
+
+const struct device *const chaos_consoleUART = DEVICE_DT_GET(UART_DEV_NODE);
+struct k_thread chaos_consoleThreadStruct;
+k_tid_t chaos_consoleThread_tid;
+
 uChaos_SensorFault_t _sensorFaults[] = 
 {
     {"none", NONE, 0, NULL},
@@ -10,21 +18,20 @@ uChaos_SensorFault_t _sensorFaults[] =
     {"offset", OFFSET, 1, NULL},
     {"stuck_at_value", STUCK_AT_VALUE, 1, NULL}
 };
-
-K_MSGQ_DEFINE(console_msgq, CHAOS_CONSOLE_MSG_SIZE, CHAOS_CONSOLE_QUEUE_SIZE, 4);
-K_THREAD_STACK_DEFINE(chaos_consoleThread_stack_area, CHAOS_CONSOLE_THREAD_STACKSIZE);
-
-const struct device *const chaos_consoleUART = DEVICE_DT_GET(UART_DEV_NODE);
-struct k_thread chaos_consoleThreadStruct;
-k_tid_t chaos_consoleThread_tid;
-
-static uint8_t consoleRxBuf[CHAOS_CONSOLE_MSG_SIZE];
-static uint16_t consoleRxBufBytesNbr = 0;
-uChaosSensor_t* currentSensor = NULL;
-
 uChaos_SensorFault_t* sensorFaults = _sensorFaults;
+static uint8_t _consoleRxBuf[CHAOS_CONSOLE_MSG_SIZE];
+static uint16_t _consoleRxBufBytesNbr = 0;
+uChaosSensor_t* _currentSensor = NULL;
 
-static void _chaos_consoleCallback(const struct device *dev, void *userData)
+
+static void uChaosConsole_ClearRxBuff(void)
+{
+    memset(_consoleRxBuf, 0, sizeof(_consoleRxBuf));
+    _consoleRxBufBytesNbr = 0;
+}
+
+
+static void uChaosConsole_Callback(const struct device *dev, void *userData)
 {
     uint8_t c = 0;
 	uart_irq_update(dev);
@@ -33,26 +40,26 @@ static void _chaos_consoleCallback(const struct device *dev, void *userData)
     {
         uart_fifo_read(dev, &c, 1);
 
-        if (((c == '\r') || (c == '\n')) && (consoleRxBufBytesNbr > 0))
+        if (((c == '\r') || (c == '\n')) && (_consoleRxBufBytesNbr > 0))
         {
-            consoleRxBuf[consoleRxBufBytesNbr] = '\0';
-            k_msgq_put(&console_msgq, &consoleRxBuf, K_NO_WAIT);
-            consoleRxBufBytesNbr = 0;
+            _consoleRxBuf[_consoleRxBufBytesNbr] = '\0';
+            k_msgq_put(&console_msgq, &_consoleRxBuf, K_NO_WAIT);
+            uChaosConsole_ClearRxBuff();
         }
-        else if (consoleRxBufBytesNbr < (sizeof(consoleRxBuf) - 1))
+        else if (_consoleRxBufBytesNbr < (sizeof(_consoleRxBuf) - 1))
         {
-            consoleRxBuf[consoleRxBufBytesNbr++] = c;
+            _consoleRxBuf[_consoleRxBufBytesNbr++] = c;
         }
     }
 }
 
 
-uChaos_SensorFault_t* chaos_consoleGetFaultsData(void)
+uChaos_SensorFault_t* uChaosConsole_GetFaultsData(void)
 {
     return sensorFaults;
 }
 
-void chaos_consoleInit(void)
+void uChaosConsole_Init(void)
 {
     for (uint8_t i = 0; i < (sizeof(_sensorFaults) / sizeof(uChaos_SensorFault_t)); i++)
     {
@@ -62,24 +69,24 @@ void chaos_consoleInit(void)
         }
     }
 
-    uart_irq_callback_user_data_set(chaos_consoleUART, _chaos_consoleCallback, NULL);
+    uart_irq_callback_user_data_set(chaos_consoleUART, uChaosConsole_Callback, NULL);
 	uart_irq_rx_enable(chaos_consoleUART);
 
     chaos_consoleThread_tid = k_thread_create(&chaos_consoleThreadStruct, chaos_consoleThread_stack_area,
                                                 K_THREAD_STACK_SIZEOF(chaos_consoleThread_stack_area),
-                                                chaos_consoleThread,
+                                                uChaosConsole_Thread,
                                                 NULL, NULL, NULL,
                                                 K_LOWEST_THREAD_PRIO, 0, K_NO_WAIT);
 }
 
 
-void chaos_consoleThread(void* arg1, void* arg2, void* arg3)
+void uChaosConsole_Thread(void* arg1, void* arg2, void* arg3)
 {
-    chaos_consoleThreadFunction(CHAOS_CONSOLE_THREAD_SLEEP, 0);
+    uChaosConsole_ThreadFunction(CHAOS_CONSOLE_THREAD_SLEEP, 0);
 }
 
 
-void chaos_consoleThreadFunction(uint32_t sleep_ms, uint32_t id)
+void uChaosConsole_ThreadFunction(uint32_t sleep_ms, uint32_t id)
 {
     uint8_t dataBuf[CHAOS_CONSOLE_MSG_SIZE] = {0};
 
@@ -88,19 +95,21 @@ void chaos_consoleThreadFunction(uint32_t sleep_ms, uint32_t id)
 		printk("Data received: ");
         printk("%s", (const char*)dataBuf); 
         printk("\r\n");
-        chaos_consoleCheckCommand(dataBuf);
+        uChaosConsole_CheckCommand(dataBuf);
 	}
 }
 
 
-bool chaos_consoleSearchForCommand(uint8_t* buf)
+bool uChaosConsole_SearchForFault(uint8_t* buf)
 {
     for (uint8_t i = 0; i < (sizeof(_sensorFaults) / sizeof(uChaos_SensorFault_t)); i++)
     {
         if (strcmp(_sensorFaults[i].name, buf) == 0)
         {
-            currentSensor->sensorFault.faultType = _sensorFaults[i].faultType;
-            printk("%s recognized\n", (const char*)_sensorFaults[i].name);
+            _currentSensor->sensorFault.faultType = _sensorFaults[i].faultType;
+            memset(_currentSensor->sensorFault.name, 0, UCHAOS_FAULT_NAME_LEN);
+            snprintf(_currentSensor->sensorFault.name, UCHAOS_FAULT_NAME_LEN, "%s", (const char*)_sensorFaults[i].name);
+            printk("%s recognized\n", (const char*)_currentSensor->sensorFault.name);
             return true;
         }
     }
@@ -108,7 +117,7 @@ bool chaos_consoleSearchForCommand(uint8_t* buf)
     return false;
 }
 
-bool chaos_consoleParseCommand(uint8_t* buf)
+bool uChaosConsole_ParseCommand(uint8_t* buf)
 {
 	int32_t paramValue = 0;
     uint8_t paramDigits[3] = {0};
@@ -123,9 +132,9 @@ bool chaos_consoleParseCommand(uint8_t* buf)
 			if (digitsCount > 0)
 			{
 				paramValue = (int32_t)atoi((const char*)paramDigits);
-				if (paramValue && (paramsFound < _sensorFaults[currentSensor->sensorFault.faultType].paramsNbr))
+				if (paramValue && (paramsFound < _sensorFaults[_currentSensor->sensorFault.faultType].paramsNbr))
 				{
-					_sensorFaults[currentSensor->sensorFault.faultType].params[paramsFound] = paramValue;
+					_sensorFaults[_currentSensor->sensorFault.faultType].params[paramsFound] = paramValue;
 				}
 				paramsFound++;
 				digitsCount = 0;
@@ -146,32 +155,33 @@ bool chaos_consoleParseCommand(uint8_t* buf)
 			}
 		}
 		i++;
-		if (i == CHAOS_CONSOLE_MSG_SIZE) { break; }
+		if (i == CHAOS_CONSOLE_MSG_SIZE) { break; } // todo: not compare to CHAOS_CONSOLE_MSG_SIZE
 	}
 
-	if (paramsFound == _sensorFaults[currentSensor->sensorFault.faultType].paramsNbr)
+	if (paramsFound == _sensorFaults[_currentSensor->sensorFault.faultType].paramsNbr)
     {
-        currentSensor->sensorFault = _sensorFaults[currentSensor->sensorFault.faultType];
+        uChaosSensor_FaultSet(_currentSensor, &_sensorFaults[_currentSensor->sensorFault.faultType]);
+        _currentSensor = NULL;
         return true;
     }
 	else { return false; }
 }
 
-bool chaos_consoleSearchForSensorName(uint8_t* buf)
+bool uChaosConsole_SearchForSensorName(uint8_t* buf)
 {
     for (uint8_t i = 0;  i < UCHAOS_SENSORS_NUMBER; i++)
     {
         if (strcmp((uChaosSensor_GetSensor() + i)->name, buf) == 0)
         {
-            currentSensor = (uChaosSensor_GetSensor() + i);
-            printk("Sensor recognized: %s\n", (const char*)currentSensor->name);
+            _currentSensor = (uChaosSensor_GetSensor() + i);
+            printk("Sensor recognized: %s\n", (const char*)_currentSensor->name);
             return true;
         }
     }
     return false;
 }
 
-void chaos_consoleCheckCommand(uint8_t* buf)
+void uChaosConsole_CheckCommand(uint8_t* buf)
 {
     uint8_t dataBuf[CHAOS_CONSOLE_MSG_SIZE] = {0};
     uint8_t i = 0;
@@ -181,7 +191,7 @@ void chaos_consoleCheckCommand(uint8_t* buf)
         dataBuf[i] = buf[i];
         i++;
     }
-    if (!chaos_consoleSearchForSensorName(dataBuf))
+    if (!uChaosConsole_SearchForSensorName(dataBuf))
     {
         printk("ERROR: Sensor name not found\n");
         return;
@@ -193,9 +203,9 @@ void chaos_consoleCheckCommand(uint8_t* buf)
         dataBuf[i] = buf[i];
         i++;
     }
-    if (chaos_consoleSearchForCommand(&dataBuf[nextWordStart]))
+    if (uChaosConsole_SearchForFault(&dataBuf[nextWordStart]))
     {
-        if (!chaos_consoleParseCommand(&buf[i]))
+        if (!uChaosConsole_ParseCommand(&buf[i]))
         {
             printk("ERROR: Incorrect command\n");    
         }
@@ -206,18 +216,11 @@ void chaos_consoleCheckCommand(uint8_t* buf)
     }
 }
 
-void chaos_clearConsoleRxBuff(void)
-{
-    memset(consoleRxBuf, 0, sizeof(consoleRxBuf));
-    consoleRxBufBytesNbr = 0;
-}
-
-
 uChaos_SensorFaultsTypes_t chaos_getFaultType(void)
 {
-    if (currentSensor != NULL)
+    if (_currentSensor != NULL)
     {
-        return currentSensor->sensorFault.faultType;
+        return _currentSensor->sensorFault.faultType;
     }
     else
     {

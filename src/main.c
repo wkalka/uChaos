@@ -42,7 +42,7 @@ int main(void)
 #endif
 
     uint32_t counter = 1;
-	chaos_consoleInit();
+	uChaosConsole_Init();
     uChaosSensor_Init("adxl345", adxl345);
 
 	while (1)
