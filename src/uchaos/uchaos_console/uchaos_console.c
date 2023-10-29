@@ -14,9 +14,9 @@ uChaos_SensorFault_t _sensorFaults[] =
     {"connection", CONNECTION, 2, NULL},
     {"noise", NOISE, 2, NULL},
     {"data_anomaly", DATA_ANOMALY, 4, NULL},
-    {"data_spike", DATA_SPIKE, 0, NULL},
+    {"data_spike", DATA_SPIKE, 3, NULL},
     {"offset", OFFSET, 1, NULL},
-    {"stuck_at_value", STUCK_AT_VALUE, 1, NULL}
+    {"stuck_at_value", STUCK_AT_VALUE, 0, NULL}
 };
 uChaos_SensorFault_t* sensorFaults = _sensorFaults;
 static uint8_t _consoleRxBuf[CHAOS_CONSOLE_MSG_SIZE];
@@ -58,6 +58,7 @@ uChaos_SensorFault_t* uChaosConsole_GetFaultsData(void)
 {
     return sensorFaults;
 }
+
 
 void uChaosConsole_Init(void)
 {
@@ -117,6 +118,7 @@ bool uChaosConsole_SearchForFault(uint8_t* buf)
     return false;
 }
 
+
 bool uChaosConsole_ParseCommand(uint8_t* buf)
 {
 	int32_t paramValue = 0;
@@ -167,6 +169,7 @@ bool uChaosConsole_ParseCommand(uint8_t* buf)
 	else { return false; }
 }
 
+
 bool uChaosConsole_SearchForSensorName(uint8_t* buf)
 {
     for (uint8_t i = 0;  i < UCHAOS_SENSORS_NUMBER; i++)
@@ -180,6 +183,7 @@ bool uChaosConsole_SearchForSensorName(uint8_t* buf)
     }
     return false;
 }
+
 
 void uChaosConsole_CheckCommand(uint8_t* buf)
 {
@@ -215,6 +219,32 @@ void uChaosConsole_CheckCommand(uint8_t* buf)
         printk("ERROR: Incorrect command\n");
     }
 }
+
+
+void uChaosConsole_Help(void)
+{
+    printk("\r\n\r\nuChaos help: commands and parameters\r\n"
+            "--SENSOR--\r\n"
+            "- none\r\n"
+            "- connection <min_frequency> <max_frequency>\r\n"
+            "- noise <min_level> <max_level>\r\n"
+            "- data_anomaly <min_frequency> <max_frequency> <min_level> <max_level>\r\n"
+            "- data_spike <direction> <max_level> <samples_length>\r\n"
+            "- offset <direction> <level>\r\n"
+            "- stuck_at_value\r\n"
+            "--MEMORY--\r\n"
+            "- mem_alloc <block_id> <block_bytes_size> <blocks_number>\r\n"
+            "- mem_free <block_id>\r\n"
+            "--CPU--\r\n"
+            "- load_add <thread_name> <thread_priority> <thread_stack_size> <thread_sleep_ms>\r\n"
+            "- load_del <thread_name>\r\n"
+            "--SUPPLY--\r\n"
+            "- battery\r\n"
+            "- restart\r\n"
+            "- crash\r\n"
+    );
+}
+
 
 uChaos_SensorFaultsTypes_t chaos_getFaultType(void)
 {

@@ -28,6 +28,8 @@ bool uChaosConsole_ParseCommand(uint8_t* buf);
 bool uChaosConsole_SearchForSensorName(uint8_t* buf);
 void uChaosConsole_CheckCommand(uint8_t* buf);
 
+void uChaosConsole_Help(void);
+
 uChaos_SensorFaultsTypes_t chaos_getFaultType(void);
 
 #endif

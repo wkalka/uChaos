@@ -23,6 +23,7 @@ static uint32_t _uChaosSensor_RandUIntFromRange(uint32_t low, uint32_t up)
     return ((random % (up - low + 1)) + low);
 }
 
+
 // static double _uChaosSensor_RandDoubleFromRange(double low, double up)
 // {
 //     double random = (double)sys_rand32_get();

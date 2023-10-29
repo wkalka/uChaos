@@ -16,6 +16,7 @@ typedef enum
     CPU,
     MEMORY,
     NETWORK,
+    SUPPLY,
 } uChaos_FaultsGroups_t;
 
 typedef enum 
