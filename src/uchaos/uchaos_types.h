@@ -13,11 +13,11 @@
 typedef enum
 {
     SENSOR,
-    CPU,
     MEMORY,
-    NETWORK,
-    SUPPLY,
-} uChaos_FaultsGroups_t;
+    CPU,
+    POWER
+    // NETWORK,
+} uChaos_FaultGroup_t;
 
 typedef enum 
 {
@@ -27,15 +27,23 @@ typedef enum
     DATA_ANOMALY,
     DATA_SPIKE,
     OFFSET,
-    STUCK_AT_VALUE
-} uChaos_SensorFaultsTypes_t;
+    STUCK_AT_VALUE,
+    MEM_ALLOC,
+    MEM_FREE,
+    LOAD_ADD,
+    LOAD_DEL,
+    BATTERY,
+    RESTART,
+    HANG_UP
+} uChaos_SensorFaultType_t;
 
 typedef struct
 {
     char name[UCHAOS_FAULT_NAME_LEN];
-    uChaos_SensorFaultsTypes_t faultType;
+    uChaos_FaultGroup_t faultGroup;
+    uChaos_SensorFaultType_t faultType;
     uint8_t paramsNbr;
     uint32_t* params;
-} uChaos_SensorFault_t;
+} uChaos_Fault_t;
 
 #endif

@@ -23,7 +23,7 @@
 typedef struct 
 {
     char name[UCHAOS_SENSOR_NAME_LEN];
-    uChaos_SensorFault_t sensorFault;
+    uChaos_Fault_t sensorFault;
     struct device* device;
 } uChaosSensor_t;
 
@@ -36,7 +36,8 @@ void uChaosSensor_Init(const char* name, const struct device* dev);
 int uChaosSensor_ChannelGet(const struct device* dev, enum sensor_channel chan, struct sensor_value* val);
 
 uChaosSensor_t* uChaosSensor_GetSensor(void);
-void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_SensorFault_t* fault);
+void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_Fault_t* fault);
+uChaos_SensorFaultType_t uChaosSensor_FaultGet(__unused const struct device* dev);
 
 bool uChaosSensor_Connection(void);
 void uChaosSensor_Noise(struct sensor_value* sensorValue);

@@ -17,7 +17,7 @@
 #define DIGITS_ASCII_START		        48
 #define DIGITS_ASCII_END		        57
 
-uChaos_SensorFault_t* uChaosConsole_GetFaultsData(void);
+uChaos_Fault_t* uChaosConsole_GetFaultsData(void);
 
 void uChaosConsole_Init(void);
 void uChaosConsole_Thread(void* arg1, void* arg2, void* arg3);
@@ -29,7 +29,5 @@ bool uChaosConsole_SearchForSensorName(uint8_t* buf);
 void uChaosConsole_CheckCommand(uint8_t* buf);
 
 void uChaosConsole_Help(void);
-
-uChaos_SensorFaultsTypes_t chaos_getFaultType(void);
 
 #endif

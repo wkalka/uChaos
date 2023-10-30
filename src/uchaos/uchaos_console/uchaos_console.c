@@ -8,19 +8,30 @@ const struct device *const chaos_consoleUART = DEVICE_DT_GET(UART_DEV_NODE);
 struct k_thread chaos_consoleThreadStruct;
 k_tid_t chaos_consoleThread_tid;
 
-uChaos_SensorFault_t _sensorFaults[] = 
-{
-    {"none", NONE, 0, NULL},
-    {"connection", CONNECTION, 2, NULL},
-    {"noise", NOISE, 2, NULL},
-    {"data_anomaly", DATA_ANOMALY, 4, NULL},
-    {"data_spike", DATA_SPIKE, 3, NULL},
-    {"offset", OFFSET, 1, NULL},
-    {"stuck_at_value", STUCK_AT_VALUE, 0, NULL}
-};
-uChaos_SensorFault_t* sensorFaults = _sensorFaults;
 static uint8_t _consoleRxBuf[CHAOS_CONSOLE_MSG_SIZE];
 static uint16_t _consoleRxBufBytesNbr = 0;
+
+uChaos_Fault_t _faults[] = 
+{
+    {"none", SENSOR, NONE, 0, NULL},
+    {"connection", SENSOR, CONNECTION, 2, NULL},
+    {"noise", SENSOR, NOISE, 2, NULL},
+    {"data_anomaly", SENSOR, DATA_ANOMALY, 4, NULL},
+    {"data_spike", SENSOR, DATA_SPIKE, 3, NULL},
+    {"offset", SENSOR, OFFSET, 1, NULL},
+    {"stuck_at_value", SENSOR, STUCK_AT_VALUE, 0, NULL},
+
+    {"mem_alloc", MEMORY, MEM_ALLOC, 0, NULL},
+    {"mem_free", MEMORY, MEM_FREE, 0, NULL},
+
+    {"load_add", CPU, LOAD_ADD, 0, NULL},
+    {"load_del", CPU, LOAD_DEL, 0, NULL},
+
+    {"battery", POWER, BATTERY, 2, NULL},
+    {"restart", POWER, RESTART, 0, NULL},
+    {"hang_up", POWER, HANG_UP, 0, NULL}
+};
+uChaos_Fault_t* _currentFault = NULL;
 uChaosSensor_t* _currentSensor = NULL;
 
 
@@ -54,19 +65,19 @@ static void uChaosConsole_Callback(const struct device *dev, void *userData)
 }
 
 
-uChaos_SensorFault_t* uChaosConsole_GetFaultsData(void)
+uChaos_Fault_t* uChaosConsole_GetFaultsData(void)
 {
-    return sensorFaults;
+    return _faults;
 }
 
 
 void uChaosConsole_Init(void)
 {
-    for (uint8_t i = 0; i < (sizeof(_sensorFaults) / sizeof(uChaos_SensorFault_t)); i++)
+    for (uint8_t i = 0; i < (sizeof(_faults) / sizeof(uChaos_Fault_t)); i++)
     {
-        if (_sensorFaults[i].paramsNbr > 0)
+        if (_faults[i].paramsNbr > 0)
         {
-            _sensorFaults[i].params = (uint32_t*)k_malloc(sizeof(uint32_t) * _sensorFaults[i].paramsNbr);
+            _faults[i].params = (uint32_t*)k_malloc(sizeof(uint32_t) * _faults[i].paramsNbr);
         }
     }
 
@@ -103,14 +114,12 @@ void uChaosConsole_ThreadFunction(uint32_t sleep_ms, uint32_t id)
 
 bool uChaosConsole_SearchForFault(uint8_t* buf)
 {
-    for (uint8_t i = 0; i < (sizeof(_sensorFaults) / sizeof(uChaos_SensorFault_t)); i++)
+    for (uint8_t i = 0; i < (sizeof(_faults) / sizeof(uChaos_Fault_t)); i++)
     {
-        if (strcmp(_sensorFaults[i].name, buf) == 0)
+        if (strcmp(_faults[i].name, buf) == 0)
         {
-            _currentSensor->sensorFault.faultType = _sensorFaults[i].faultType;
-            memset(_currentSensor->sensorFault.name, 0, UCHAOS_FAULT_NAME_LEN);
-            snprintf(_currentSensor->sensorFault.name, UCHAOS_FAULT_NAME_LEN, "%s", (const char*)_sensorFaults[i].name);
-            printk("%s recognized\n", (const char*)_currentSensor->sensorFault.name);
+            _currentFault = &_faults[i];
+            printk("%s recognized\n", (const char*)_currentFault->name);
             return true;
         }
     }
@@ -134,9 +143,9 @@ bool uChaosConsole_ParseCommand(uint8_t* buf)
 			if (digitsCount > 0)
 			{
 				paramValue = (int32_t)atoi((const char*)paramDigits);
-				if (paramValue && (paramsFound < _sensorFaults[_currentSensor->sensorFault.faultType].paramsNbr))
+				if (paramValue && (paramsFound < _faults[_currentSensor->sensorFault.faultType].paramsNbr))
 				{
-					_sensorFaults[_currentSensor->sensorFault.faultType].params[paramsFound] = paramValue;
+					_faults[_currentSensor->sensorFault.faultType].params[paramsFound] = paramValue;
 				}
 				paramsFound++;
 				digitsCount = 0;
@@ -160,10 +169,11 @@ bool uChaosConsole_ParseCommand(uint8_t* buf)
 		if (i == CHAOS_CONSOLE_MSG_SIZE) { break; } // todo: not compare to CHAOS_CONSOLE_MSG_SIZE
 	}
 
-	if (paramsFound == _sensorFaults[_currentSensor->sensorFault.faultType].paramsNbr)
+	if (paramsFound ==_currentFault->paramsNbr)
     {
-        uChaosSensor_FaultSet(_currentSensor, &_sensorFaults[_currentSensor->sensorFault.faultType]);
+        uChaosSensor_FaultSet(_currentSensor, _currentFault);
         _currentSensor = NULL;
+        _currentFault = NULL;
         return true;
     }
 	else { return false; }
@@ -195,9 +205,14 @@ void uChaosConsole_CheckCommand(uint8_t* buf)
         dataBuf[i] = buf[i];
         i++;
     }
-    if (!uChaosConsole_SearchForSensorName(dataBuf))
+    if (!uChaosConsole_SearchForFault(dataBuf))
     {
-        printk("ERROR: Sensor name not found\n");
+        if (strcmp("help", buf) == 0)
+        {
+            uChaosConsole_Help();
+            return;
+        }
+        printk("ERROR: Incorrect command\n");
         return;
     }
     i++;
@@ -207,11 +222,11 @@ void uChaosConsole_CheckCommand(uint8_t* buf)
         dataBuf[i] = buf[i];
         i++;
     }
-    if (uChaosConsole_SearchForFault(&dataBuf[nextWordStart]))
+    if (uChaosConsole_SearchForSensorName(&dataBuf[nextWordStart]))
     {
         if (!uChaosConsole_ParseCommand(&buf[i]))
         {
-            printk("ERROR: Incorrect command\n");    
+            printk("ERROR: Incorrect command\n");
         }
     }
     else
@@ -225,13 +240,13 @@ void uChaosConsole_Help(void)
 {
     printk("\r\n\r\nuChaos help: commands and parameters\r\n"
             "--SENSOR--\r\n"
-            "- none\r\n"
-            "- connection <min_frequency> <max_frequency>\r\n"
-            "- noise <min_level> <max_level>\r\n"
-            "- data_anomaly <min_frequency> <max_frequency> <min_level> <max_level>\r\n"
-            "- data_spike <direction> <max_level> <samples_length>\r\n"
-            "- offset <direction> <level>\r\n"
-            "- stuck_at_value\r\n"
+            "- none <sensor_name>\r\n"
+            "- connection <sensor_name> <min_frequency> <max_frequency>\r\n"
+            "- noise <sensor_name> <min_level> <max_level>\r\n"
+            "- data_anomaly <sensor_name> <min_frequency> <max_frequency> <min_level> <max_level>\r\n"
+            "- data_spike <sensor_name> <direction> <max_level> <samples_length>\r\n"
+            "- offset <sensor_name> <direction> <level>\r\n"
+            "- stuck_at_value <sensor_name>\r\n"
             "--MEMORY--\r\n"
             "- mem_alloc <block_id> <block_bytes_size> <blocks_number>\r\n"
             "- mem_free <block_id>\r\n"
@@ -239,21 +254,8 @@ void uChaosConsole_Help(void)
             "- load_add <thread_name> <thread_priority> <thread_stack_size> <thread_sleep_ms>\r\n"
             "- load_del <thread_name>\r\n"
             "--SUPPLY--\r\n"
-            "- battery\r\n"
+            "- battery <voltage_step> <step_interval>\r\n"
             "- restart\r\n"
             "- hang_up\r\n"
     );
-}
-
-
-uChaos_SensorFaultsTypes_t chaos_getFaultType(void)
-{
-    if (_currentSensor != NULL)
-    {
-        return _currentSensor->sensorFault.faultType;
-    }
-    else
-    {
-        return NONE;
-    }
 }

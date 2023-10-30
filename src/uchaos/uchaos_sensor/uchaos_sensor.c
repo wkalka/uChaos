@@ -72,7 +72,7 @@ void uChaosSensor_Init(const char* name, const struct device* dev)
 int uChaosSensor_ChannelGet(const struct device* dev, enum sensor_channel chan, struct sensor_value* val)
 {
     int retVal = z_impl_sensor_channel_get(dev, chan, val);
-    uChaos_SensorFaultsTypes_t faultType = chaos_getFaultType();
+    uChaos_SensorFaultType_t faultType = uChaosSensor_FaultGet(dev);
 
     if (faultType != NONE)
     {
@@ -99,14 +99,18 @@ uChaosSensor_t* uChaosSensor_GetSensor(void)
 }
 
 
-void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_SensorFault_t* fault)
+void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_Fault_t* fault)
 {
     if ( sensor->sensorFault.params != NULL )
     {
         k_free(sensor->sensorFault.params);
         sensor->sensorFault.params = NULL;
     }
-    memset(&sensor->sensorFault, 0, sizeof(uChaos_SensorFault_t));
+    memset(&sensor->sensorFault, 0, sizeof(uChaos_Fault_t));
+    sensor->sensorFault.faultGroup = fault->faultGroup;
+    sensor->sensorFault.faultType = fault->faultType;
+    memset(sensor->sensorFault.name, 0, UCHAOS_FAULT_NAME_LEN); // todo: remove?
+    snprintf(sensor->sensorFault.name, UCHAOS_FAULT_NAME_LEN, "%s", (const char*)fault->name); // todo: remove?
     sensor->sensorFault.params = (uint32_t*)k_calloc(fault->paramsNbr, sizeof(uint32_t));
     sensor->sensorFault.paramsNbr = fault->paramsNbr;
     for (uint8_t i = 0; i < sensor->sensorFault.paramsNbr; i++)
@@ -114,6 +118,12 @@ void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_SensorFault_t* fault)
         sensor->sensorFault.params[i] = fault->params[i];
         fault->params[i] = 0;
     }
+}
+
+
+uChaos_SensorFaultType_t uChaosSensor_FaultGet(__unused const struct device* dev)
+{
+    return NONE;
 }
 
 
