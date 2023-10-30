@@ -241,7 +241,7 @@ void uChaosConsole_Help(void)
             "--SUPPLY--\r\n"
             "- battery\r\n"
             "- restart\r\n"
-            "- crash\r\n"
+            "- hang_up\r\n"
     );
 }
 
