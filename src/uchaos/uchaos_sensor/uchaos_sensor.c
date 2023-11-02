@@ -123,6 +123,13 @@ void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_Fault_t* fault)
 
 uChaos_SensorFaultType_t uChaosSensor_FaultGet(__unused const struct device* dev)
 {
+    for ( uint8_t i = 0; i <  UCHAOS_SENSORS_NUMBER; i++)
+    {
+        if (_uChaosSensor[i].device == dev)
+        {
+            return _uChaosSensor[i].sensorFault.faultType;
+        }
+    }
     return NONE;
 }
 
