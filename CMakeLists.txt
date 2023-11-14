@@ -22,6 +22,7 @@ set (uchaos
     src/uchaos/uchaos_battery/uchaos_battery.c
     src/uchaos/uchaos_console/uchaos_console.c
     src/uchaos/uchaos_sensor/uchaos_sensor.c
+    src/uchaos/uchaos_cpu/uchaos_cpu.c
 )
 
 FILE(GLOB app_sources 

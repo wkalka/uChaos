@@ -3,10 +3,10 @@
 
 extern int z_impl_sensor_channel_get(const struct device * dev, enum sensor_channel chan, struct sensor_value * val);
 
-static uChaosSensor_t _uChaosSensor[UCHAOS_SENSORS_NUMBER];
-static uint8_t _uChaosSensorCount;
+static uChaosSensor_t _uChaosSensors[UCHAOS_SENSORS_NUMBER];
+static uint8_t _uChaosSensorsCount;
 
-static uchaos_sensor_data_func _sensor_data_functions[STUCK_AT_VALUE - 1] = 
+static uChaosSensor_DataFunc _uChaosSensor_DataFunctions[] = 
 {
     uChaosSensor_Noise,
     uChaosSensor_DataAnomaly,
@@ -45,7 +45,7 @@ void uChaosSensor_Create(const char* name, const struct device* dev)
         return;
     }
 
-    if ( _uChaosSensorCount < UCHAOS_MAX_SENSORS_NUMBER )
+    if ( _uChaosSensorsCount < UCHAOS_MAX_SENSORS_NUMBER )
     {
         uChaosSensor_Init(name, dev);
     }
@@ -59,47 +59,64 @@ void uChaosSensor_Create(const char* name, const struct device* dev)
 
 void uChaosSensor_Init(const char* name, const struct device* dev)
 {
-    snprintf(_uChaosSensor[_uChaosSensorCount].name, UCHAOS_SENSOR_NAME_LEN - 1, "%s", name);
-    snprintf(_uChaosSensor[_uChaosSensorCount].sensorFault.name, UCHAOS_FAULT_NAME_LEN - 1, "%s", "none");
-    _uChaosSensor[_uChaosSensorCount].sensorFault.faultType = NONE;
-    _uChaosSensor[_uChaosSensorCount].sensorFault.paramsNbr = 0;
-    _uChaosSensor[_uChaosSensorCount].sensorFault.params = NULL;
-    _uChaosSensor[_uChaosSensorCount].device = (struct device*)dev;
-    _uChaosSensorCount++;
+    if (_uChaosSensorsCount < UCHAOS_SENSORS_NUMBER)
+    {
+        snprintf(_uChaosSensors[_uChaosSensorsCount].name, UCHAOS_SENSOR_NAME_LEN, "%s", name);
+        snprintf(_uChaosSensors[_uChaosSensorsCount].sensorFault.name, UCHAOS_FAULT_NAME_LEN, "%s", "none");
+        _uChaosSensors[_uChaosSensorsCount].sensorFault.faultType = NONE;
+        _uChaosSensors[_uChaosSensorsCount].sensorFault.paramsNbr = 0;
+        _uChaosSensors[_uChaosSensorsCount].sensorFault.params = NULL;
+        _uChaosSensors[_uChaosSensorsCount].device = (struct device*)dev;
+        _uChaosSensorsCount++;
+    }
 }
 
 
 int uChaosSensor_ChannelGet(const struct device* dev, enum sensor_channel chan, struct sensor_value* val)
 {
     int retVal = z_impl_sensor_channel_get(dev, chan, val);
-    uChaos_SensorFaultType_t faultType = uChaosSensor_FaultGet(dev);
+    uChaosSensor_t* sensor = uChaosSensor_GetSensor(dev);
 
-    if (faultType != NONE)
+    if (sensor->sensorFault.faultType != NONE)
     {
-        if (faultType == CONNECTION)
+        if (sensor->sensorFault.faultType == CONNECTION)
         {
-            if (uChaosSensor_Connection())
+            if (uChaosSensor_Connection(sensor))
             {
                 return -EIO;
             }
         }
         else
         {
-            _sensor_data_functions[faultType - 2](val);
+            _uChaosSensor_DataFunctions[sensor->sensorFault.faultType - 2](val, sensor);
         }
     }
+    sensor  = NULL;
 
     return retVal;
 }
 
 
-uChaosSensor_t* uChaosSensor_GetSensor(void)
+uChaosSensor_t* uChaosSensor_GetSensors(void)
 {
-    return _uChaosSensor;
+    return _uChaosSensors;
 }
 
 
-void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_Fault_t* fault)
+uChaosSensor_t* uChaosSensor_GetSensor(const struct device* dev)
+{
+    for ( uint8_t i = 0; i <  UCHAOS_SENSORS_NUMBER; i++)
+    {
+        if (_uChaosSensors[i].device == dev)
+        {
+            return &_uChaosSensors[i];
+        }
+    }
+    return NULL;
+}
+
+
+void uChaosSensor_SetFault(uChaosSensor_t* sensor, uChaos_Fault_t* fault)
 {
     if ( sensor->sensorFault.params != NULL )
     {
@@ -109,8 +126,8 @@ void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_Fault_t* fault)
     memset(&sensor->sensorFault, 0, sizeof(uChaos_Fault_t));
     sensor->sensorFault.faultGroup = fault->faultGroup;
     sensor->sensorFault.faultType = fault->faultType;
-    memset(sensor->sensorFault.name, 0, UCHAOS_FAULT_NAME_LEN); // todo: remove?
-    snprintf(sensor->sensorFault.name, UCHAOS_FAULT_NAME_LEN, "%s", (const char*)fault->name); // todo: remove?
+    memset(sensor->sensorFault.name, 0, UCHAOS_FAULT_NAME_LEN);
+    snprintf(sensor->sensorFault.name, UCHAOS_FAULT_NAME_LEN, "%s", (const char*)fault->name);
     sensor->sensorFault.params = (uint32_t*)k_calloc(fault->paramsNbr, sizeof(uint32_t));
     sensor->sensorFault.paramsNbr = fault->paramsNbr;
     for (uint8_t i = 0; i < sensor->sensorFault.paramsNbr; i++)
@@ -121,25 +138,12 @@ void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_Fault_t* fault)
 }
 
 
-uChaos_SensorFaultType_t uChaosSensor_FaultGet(__unused const struct device* dev)
-{
-    for ( uint8_t i = 0; i <  UCHAOS_SENSORS_NUMBER; i++)
-    {
-        if (_uChaosSensor[i].device == dev)
-        {
-            return _uChaosSensor[i].sensorFault.faultType;
-        }
-    }
-    return NONE;
-}
-
-
-bool uChaosSensor_Connection(void)
+bool uChaosSensor_Connection(uChaosSensor_t* sensor)
 {
     static uint32_t eventCounter;
     static uint32_t faultFrequency;
-    uint32_t minFaultFreq = (uChaosConsole_GetFaultsData() + CONNECTION)->params[0];
-    uint32_t maxFaultFreq = (uChaosConsole_GetFaultsData() + CONNECTION)->params[1];
+    uint32_t minFaultFreq = sensor->sensorFault.params[0];
+    uint32_t maxFaultFreq = sensor->sensorFault.params[1];
 
     if (minFaultFreq > maxFaultFreq)
     {
@@ -164,13 +168,13 @@ bool uChaosSensor_Connection(void)
 }
 
 
-void uChaosSensor_Noise(struct sensor_value* value)
+void uChaosSensor_Noise(struct sensor_value* value, uChaosSensor_t* sensor)
 {
     double measurements[3] = {0};
     // double measurement = 0;
 
-    uint32_t noiseMinPercent = (uChaosConsole_GetFaultsData() + NOISE)->params[0];
-    uint32_t noiseMaxPercent = (uChaosConsole_GetFaultsData() + NOISE)->params[1];
+    uint32_t noiseMinPercent = sensor->sensorFault.params[0];
+    uint32_t noiseMaxPercent = sensor->sensorFault.params[1];
 
     if (noiseMinPercent > noiseMaxPercent)
     {
@@ -182,37 +186,29 @@ void uChaosSensor_Noise(struct sensor_value* value)
     double noiseLevel = (double)(noisePercent / 100.0) + 1.0;
 
     // measurement = sensor_value_to_double(value) * noiseLevel;
-
     // sensor_value_from_double(value, measurement);
 
-    measurements[0] = sensor_value_to_double(&value[0]) * noiseLevel;
-    measurements[1] = sensor_value_to_double(&value[1]) * noiseLevel;
-    measurements[2] = sensor_value_to_double(&value[2]) * noiseLevel;
-
-    sensor_value_from_double(&value[0], measurements[0]);
-    sensor_value_from_double(&value[1], measurements[1]);
-    sensor_value_from_double(&value[2], measurements[2]);
+    for (uint8_t i = 0; i < (sizeof(measurements) / sizeof(measurements[0])); i++)
+    {
+        measurements[i] = sensor_value_to_double(&value[i]) * noiseLevel;
+        sensor_value_from_double(&value[i], measurements[i]);    
+    }
 }
 
 
-void uChaosSensor_DataAnomaly(struct sensor_value* value)
+void uChaosSensor_DataAnomaly(struct sensor_value* value, uChaosSensor_t* sensor)
 {
     static uint32_t eventCounter;
     static uint32_t faultFrequency;
     // double measurement = 0;
     double measurements[3] = {0};
-    uint32_t minFaultFreq = (uChaosConsole_GetFaultsData() + DATA_ANOMALY)->params[0];
-    uint32_t maxFaultFreq = (uChaosConsole_GetFaultsData() + DATA_ANOMALY)->params[1];
-    uint32_t anomalyMinPercent = (uChaosConsole_GetFaultsData() + DATA_ANOMALY)->params[2];
-    uint32_t anomalyMaxPercent = (uChaosConsole_GetFaultsData() + DATA_ANOMALY)->params[3];
+    uint32_t minFaultFreq = sensor->sensorFault.params[0];
+    uint32_t maxFaultFreq = sensor->sensorFault.params[1];
+    uint32_t anomalyMinPercent = sensor->sensorFault.params[2];
+    uint32_t anomalyMaxPercent = sensor->sensorFault.params[3];
 
 
-    if (minFaultFreq > maxFaultFreq)
-    {
-        printk("Improper command params order\r\n");
-        return;
-    }
-    if (anomalyMinPercent > anomalyMaxPercent)
+    if ((minFaultFreq > maxFaultFreq) || (anomalyMinPercent > anomalyMaxPercent))
     {
         printk("Improper command params order\r\n");
         return;
@@ -233,35 +229,32 @@ void uChaosSensor_DataAnomaly(struct sensor_value* value)
     double anomalyLevel = (double)(anomalyPercent / 100.0) + 1.0;
 
     // measurement = sensor_value_to_double(value) * anomalyLevel;
-
     // sensor_value_from_double(value, measurement);
 
-    measurements[0] = sensor_value_to_double(&value[0]) * anomalyLevel;
-    measurements[1] = sensor_value_to_double(&value[1]) * anomalyLevel;
-    measurements[2] = sensor_value_to_double(&value[2]) * anomalyLevel;
-
-    sensor_value_from_double(&value[0], measurements[0]);
-    sensor_value_from_double(&value[1], measurements[1]);
-    sensor_value_from_double(&value[2], measurements[2]);
+    for (uint8_t i = 0; i < (sizeof(measurements) / sizeof(measurements[0])); i++)
+    {
+        measurements[i] = sensor_value_to_double(&value[i]) * anomalyLevel;
+        sensor_value_from_double(&value[i], measurements[i]);    
+    }
 
     eventCounter = 0;
     faultFrequency = 0;
 }
 
 
-void uChaosSensor_DataSpike(struct sensor_value* value)
+void uChaosSensor_DataSpike(struct sensor_value* value, uChaosSensor_t* sensor)
 {
 
 }
 
 
-void uChaosSensor_Offset(struct sensor_value* value)
+void uChaosSensor_Offset(struct sensor_value* value, uChaosSensor_t* sensor)
 {
 
 }
 
 
-void uChaosSensor_StuckAtValue(struct sensor_value* value)
+void uChaosSensor_StuckAtValue(struct sensor_value* value, uChaosSensor_t* sensor)
 {
 
 }

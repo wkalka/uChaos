@@ -28,22 +28,22 @@ typedef struct
 } uChaosSensor_t;
 
 
-typedef void (*uchaos_sensor_data_func)(struct sensor_value* sensorValue);
+typedef void (*uChaosSensor_DataFunc)(struct sensor_value* sensorValue, uChaosSensor_t* sensor);
 
 void uChaosSensor_Create(const char* name, const struct device* dev);
 void uChaosSensor_Init(const char* name, const struct device* dev);
 
 int uChaosSensor_ChannelGet(const struct device* dev, enum sensor_channel chan, struct sensor_value* val);
 
-uChaosSensor_t* uChaosSensor_GetSensor(void);
-void uChaosSensor_FaultSet(uChaosSensor_t* sensor, uChaos_Fault_t* fault);
-uChaos_SensorFaultType_t uChaosSensor_FaultGet(__unused const struct device* dev);
+uChaosSensor_t* uChaosSensor_GetSensors(void);
+uChaosSensor_t* uChaosSensor_GetSensor(const struct device* dev);
+void uChaosSensor_SetFault(uChaosSensor_t* sensor, uChaos_Fault_t* fault);
 
-bool uChaosSensor_Connection(void);
-void uChaosSensor_Noise(struct sensor_value* sensorValue);
-void uChaosSensor_DataAnomaly(struct sensor_value* sensorValue);
-void uChaosSensor_DataSpike(struct sensor_value* value);
-void uChaosSensor_Offset(struct sensor_value* value);
-void uChaosSensor_StuckAtValue(struct sensor_value* value);
+bool uChaosSensor_Connection(uChaosSensor_t* sensor);
+void uChaosSensor_Noise(struct sensor_value* sensorValue, uChaosSensor_t* sensor);
+void uChaosSensor_DataAnomaly(struct sensor_value* sensorValue, uChaosSensor_t* sensor);
+void uChaosSensor_DataSpike(struct sensor_value* value, uChaosSensor_t* sensor);
+void uChaosSensor_Offset(struct sensor_value* value, uChaosSensor_t* sensor);
+void uChaosSensor_StuckAtValue(struct sensor_value* value, uChaosSensor_t* sensor);
 
 #endif

@@ -33,15 +33,16 @@ typedef enum
     LOAD_ADD,
     LOAD_DEL,
     BATTERY,
+    BATTERY_STOP,
     RESTART,
     HANG_UP
-} uChaos_SensorFaultType_t;
+} uChaos_FaultType_t;
 
 typedef struct
 {
     char name[UCHAOS_FAULT_NAME_LEN];
     uChaos_FaultGroup_t faultGroup;
-    uChaos_SensorFaultType_t faultType;
+    uChaos_FaultType_t faultType;
     uint8_t paramsNbr;
     uint32_t* params;
 } uChaos_Fault_t;

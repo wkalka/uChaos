@@ -1,17 +1,17 @@
 #include "uchaos_console.h"
 
 
-K_MSGQ_DEFINE(console_msgq, CHAOS_CONSOLE_MSG_SIZE, CHAOS_CONSOLE_QUEUE_SIZE, 4);
-K_THREAD_STACK_DEFINE(chaos_consoleThread_stack_area, CHAOS_CONSOLE_THREAD_STACKSIZE);
+K_MSGQ_DEFINE(uChaosConsole_Msgq, UCHAOS_CONSOLE_MSG_SIZE, UCHAOS_CONSOLE_QUEUE_SIZE, 4);
+K_THREAD_STACK_DEFINE(uChaosConsole_ThreadStackArea, UCHAOS_CONSOLE_THREAD_STACKSIZE);
 
-const struct device *const chaos_consoleUART = DEVICE_DT_GET(UART_DEV_NODE);
-struct k_thread chaos_consoleThreadStruct;
-k_tid_t chaos_consoleThread_tid;
+const struct device *const uChaosConsole_UART = DEVICE_DT_GET(UART_DEV_NODE);
+struct k_thread uChaosConsole_ThreadStruct;
+k_tid_t uChaosConsole_Thread_tid;
 
-static uint8_t _consoleRxBuf[CHAOS_CONSOLE_MSG_SIZE];
-static uint16_t _consoleRxBufBytesNbr = 0;
+static uint8_t _uChaosConsole_RxBuf[UCHAOS_CONSOLE_MSG_SIZE];
+static uint16_t _uChaosConsole_RxBufBytesCount = 0;
 
-uChaos_Fault_t _faults[] = 
+static uChaos_Fault_t _faults[] = 
 {
     {"none", SENSOR, NONE, 0, NULL},
     {"connection", SENSOR, CONNECTION, 2, NULL},
@@ -27,22 +27,23 @@ uChaos_Fault_t _faults[] =
     {"load_add", CPU, LOAD_ADD, 0, NULL},
     {"load_del", CPU, LOAD_DEL, 0, NULL},
 
-    {"battery", POWER, BATTERY, 2, NULL},
+    {"battery", POWER, BATTERY, 3, NULL},
+    {"battery_stop", POWER, BATTERY_STOP, 0, NULL},
     {"restart", POWER, RESTART, 0, NULL},
     {"hang_up", POWER, HANG_UP, 0, NULL}
 };
-uChaos_Fault_t* _currentFault = NULL;
-uChaosSensor_t* _currentSensor = NULL;
+static uChaos_Fault_t* _currentFault = NULL;
+uChaosSensor_t* _currentSensor = NULL; // todo: move it to uChaosSensor
 
 
-static void uChaosConsole_ClearRxBuff(void)
+static void _uChaosConsole_ClearRxBuff(void)
 {
-    memset(_consoleRxBuf, 0, sizeof(_consoleRxBuf));
-    _consoleRxBufBytesNbr = 0;
+    memset(_uChaosConsole_RxBuf, 0, sizeof(_uChaosConsole_RxBuf));
+    _uChaosConsole_RxBufBytesCount = 0;
 }
 
 
-static void uChaosConsole_Callback(const struct device *dev, void *userData)
+static void _uChaosConsole_Callback(const struct device *dev, void *userData)
 {
     uint8_t c = 0;
 	uart_irq_update(dev);
@@ -51,23 +52,17 @@ static void uChaosConsole_Callback(const struct device *dev, void *userData)
     {
         uart_fifo_read(dev, &c, 1);
 
-        if (((c == '\r') || (c == '\n')) && (_consoleRxBufBytesNbr > 0))
+        if (((c == '\r') || (c == '\n')) && (_uChaosConsole_RxBufBytesCount > 0))
         {
-            _consoleRxBuf[_consoleRxBufBytesNbr] = '\0';
-            k_msgq_put(&console_msgq, &_consoleRxBuf, K_NO_WAIT);
-            uChaosConsole_ClearRxBuff();
+            _uChaosConsole_RxBuf[_uChaosConsole_RxBufBytesCount] = '\0';
+            k_msgq_put(&uChaosConsole_Msgq, &_uChaosConsole_RxBuf, K_NO_WAIT);
+            _uChaosConsole_ClearRxBuff();
         }
-        else if (_consoleRxBufBytesNbr < (sizeof(_consoleRxBuf) - 1))
+        else if (_uChaosConsole_RxBufBytesCount < (sizeof(_uChaosConsole_RxBuf) - 1))
         {
-            _consoleRxBuf[_consoleRxBufBytesNbr++] = c;
+            _uChaosConsole_RxBuf[_uChaosConsole_RxBufBytesCount++] = c;
         }
     }
-}
-
-
-uChaos_Fault_t* uChaosConsole_GetFaultsData(void)
-{
-    return _faults;
 }
 
 
@@ -81,28 +76,28 @@ void uChaosConsole_Init(void)
         }
     }
 
-    uart_irq_callback_user_data_set(chaos_consoleUART, uChaosConsole_Callback, NULL);
-	uart_irq_rx_enable(chaos_consoleUART);
+    uart_irq_callback_user_data_set(uChaosConsole_UART, _uChaosConsole_Callback, NULL);
+	uart_irq_rx_enable(uChaosConsole_UART);
 
-    chaos_consoleThread_tid = k_thread_create(&chaos_consoleThreadStruct, chaos_consoleThread_stack_area,
-                                                K_THREAD_STACK_SIZEOF(chaos_consoleThread_stack_area),
+    uChaosConsole_Thread_tid = k_thread_create(&uChaosConsole_ThreadStruct, uChaosConsole_ThreadStackArea,
+                                                K_THREAD_STACK_SIZEOF(uChaosConsole_ThreadStackArea),
                                                 uChaosConsole_Thread,
                                                 NULL, NULL, NULL,
-                                                K_LOWEST_THREAD_PRIO, 0, K_NO_WAIT);
+                                                UCHAOS_CONSOLE_THREAD_PRIORITY, 0, K_NO_WAIT);
 }
 
 
 void uChaosConsole_Thread(void* arg1, void* arg2, void* arg3)
 {
-    uChaosConsole_ThreadFunction(CHAOS_CONSOLE_THREAD_SLEEP, 0);
+    uChaosConsole_ThreadFunction(UCHAOS_CONSOLE_THREAD_SLEEP, 0);
 }
 
 
 void uChaosConsole_ThreadFunction(uint32_t sleep_ms, uint32_t id)
 {
-    uint8_t dataBuf[CHAOS_CONSOLE_MSG_SIZE] = {0};
+    uint8_t dataBuf[UCHAOS_CONSOLE_MSG_SIZE] = {0};
 
-	while (k_msgq_get(&console_msgq, &dataBuf, K_FOREVER) == 0)
+	while (k_msgq_get(&uChaosConsole_Msgq, &dataBuf, K_FOREVER) == 0)
     {
 		printk("Data received: ");
         printk("%s", (const char*)dataBuf); 
@@ -128,7 +123,79 @@ bool uChaosConsole_SearchForFault(uint8_t* buf)
 }
 
 
-bool uChaosConsole_ParseCommand(uint8_t* buf)
+bool uChaosConsole_SearchForStringParam(uint8_t* destination, uint8_t* source, uint8_t* index)
+{
+    uint8_t i = 0;
+    bool retVal = false;
+    while ((i < UCHAOS_CONSOLE_MSG_SIZE) && (source[i] != ' ') && (source[i] != '\0'))
+    {
+        destination[i] = source[i];
+        i++;
+        (*index)++;
+    }
+
+    switch (_currentFault->faultGroup)
+    {
+        case SENSOR:
+        {
+            retVal = uChaosConsole_SearchForSensorName(&destination[0]);
+            break;
+        }
+        case CPU:
+        {
+            retVal = uChaosConsole_SearchForThreadName(&destination[0]);
+            break;
+        }
+        
+        case MEMORY:
+        case POWER:
+        {
+            retVal = true;
+            break;
+        }
+
+        default:
+        {
+            retVal = false;
+            break;
+        }
+    }
+
+    return retVal;
+}
+
+
+bool uChaosConsole_SearchForSensorName(uint8_t* buf)
+{
+    for (uint8_t i = 0;  i < UCHAOS_SENSORS_NUMBER; i++)
+    {
+        if (strcmp((uChaosSensor_GetSensors() + i)->name, buf) == 0)
+        {
+            _currentSensor = (uChaosSensor_GetSensors() + i);
+            printk("Sensor recognized: %s\n", (const char*)_currentSensor->name);
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool uChaosConsole_SearchForThreadName(uint8_t* buf)
+{
+    for (uint8_t i = 0;  i < UCHAOS_SENSORS_NUMBER; i++)
+    {
+        // if (strcmp((uChaosSensor_GetSensors() + i)->name, buf) == 0)
+        // {
+        //     _currentSensor = (uChaosSensor_GetSensors() + i);
+        //     printk("Sensor recognized: %s\n", (const char*)_currentSensor->name);
+        //     return true;
+        // }
+    }
+    return false;
+}
+
+
+bool uChaosConsole_ParseCommand(uint8_t* buf, uint8_t* index)
 {
 	int32_t paramValue = 0;
     uint8_t paramDigits[3] = {0};
@@ -166,12 +233,13 @@ bool uChaosConsole_ParseCommand(uint8_t* buf)
 			}
 		}
 		i++;
-		if (i == CHAOS_CONSOLE_MSG_SIZE) { break; } // todo: not compare to CHAOS_CONSOLE_MSG_SIZE
+        (*index)++;
+		if (*index == UCHAOS_CONSOLE_MSG_SIZE) { break; } // todo: not compare to UCHAOS_CONSOLE_MSG_SIZE
 	}
 
 	if (paramsFound ==_currentFault->paramsNbr)
     {
-        uChaosSensor_FaultSet(_currentSensor, _currentFault);
+        uChaosSensor_SetFault(_currentSensor, _currentFault);
         _currentSensor = NULL;
         _currentFault = NULL;
         return true;
@@ -180,27 +248,12 @@ bool uChaosConsole_ParseCommand(uint8_t* buf)
 }
 
 
-bool uChaosConsole_SearchForSensorName(uint8_t* buf)
-{
-    for (uint8_t i = 0;  i < UCHAOS_SENSORS_NUMBER; i++)
-    {
-        if (strcmp((uChaosSensor_GetSensor() + i)->name, buf) == 0)
-        {
-            _currentSensor = (uChaosSensor_GetSensor() + i);
-            printk("Sensor recognized: %s\n", (const char*)_currentSensor->name);
-            return true;
-        }
-    }
-    return false;
-}
-
-
 void uChaosConsole_CheckCommand(uint8_t* buf)
 {
-    uint8_t dataBuf[CHAOS_CONSOLE_MSG_SIZE] = {0};
+    uint8_t dataBuf[UCHAOS_CONSOLE_MSG_SIZE] = {0};
     uint8_t i = 0;
 
-    while ((i < (CHAOS_CONSOLE_MSG_SIZE - 1)) && (buf[i] != ' ') && (buf[i] != '\0'))
+    while ((i < UCHAOS_CONSOLE_MSG_SIZE) && (buf[i] != ' ') && (buf[i] != '\0'))
     {
         dataBuf[i] = buf[i];
         i++;
@@ -216,15 +269,10 @@ void uChaosConsole_CheckCommand(uint8_t* buf)
         return;
     }
     i++;
-    uint8_t nextWordStart = i;
-    while ((i < (CHAOS_CONSOLE_MSG_SIZE - 1)) && (buf[i] != ' ') && (buf[i] != '\0'))
+    if (uChaosConsole_SearchForStringParam(&dataBuf[i], &buf[i], &i))
     {
-        dataBuf[i] = buf[i];
         i++;
-    }
-    if (uChaosConsole_SearchForSensorName(&dataBuf[nextWordStart]))
-    {
-        if (!uChaosConsole_ParseCommand(&buf[i]))
+        if (!uChaosConsole_ParseCommand(&buf[i], &i))
         {
             printk("ERROR: Incorrect command\n");
         }
@@ -248,13 +296,16 @@ void uChaosConsole_Help(void)
             "- offset <sensor_name> <direction> <level>\r\n"
             "- stuck_at_value <sensor_name>\r\n"
             "--MEMORY--\r\n"
-            "- mem_alloc <block_id> <block_bytes_size> <blocks_number>\r\n"
+            "- mem_alloc <block_id> <block_bytes_size>\r\n"
             "- mem_free <block_id>\r\n"
             "--CPU--\r\n"
-            "- load_add <thread_name> <thread_priority> <thread_stack_size> <thread_sleep_ms>\r\n"
+            "- load_add <thread_name>\r\n"
             "- load_del <thread_name>\r\n"
+            // "- load_add <thread_name> <thread_priority> <thread_stack_size> <thread_sleep_ms>\r\n"
+            // "- load_del <thread_name>\r\n"
             "--SUPPLY--\r\n"
-            "- battery <voltage_step> <step_interval>\r\n"
+            "- battery <voltage_step_mV> <step_interval> <steps_number>\r\n"
+            "- battery_stop\r\n"
             "- restart\r\n"
             "- hang_up\r\n"
     );
