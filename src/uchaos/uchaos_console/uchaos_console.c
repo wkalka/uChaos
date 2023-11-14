@@ -72,7 +72,7 @@ void uChaosConsole_Init(void)
     {
         if (_faults[i].paramsNbr > 0)
         {
-            _faults[i].params = (uint32_t*)k_malloc(sizeof(uint32_t) * _faults[i].paramsNbr);
+            _faults[i].params = (uint32_t*)k_calloc(sizeof(uint32_t) * _faults[i].paramsNbr);
         }
     }
 
@@ -210,9 +210,9 @@ bool uChaosConsole_ParseCommand(uint8_t* buf, uint8_t* index)
 			if (digitsCount > 0)
 			{
 				paramValue = (int32_t)atoi((const char*)paramDigits);
-				if (paramValue && (paramsFound < _faults[_currentSensor->sensorFault.faultType].paramsNbr))
+				if (paramValue && (paramsFound < _faults[_currentFault->faultType].paramsNbr))
 				{
-					_faults[_currentSensor->sensorFault.faultType].params[paramsFound] = paramValue;
+					_faults[_currentFault->faultType].params[paramsFound] = paramValue;
 				}
 				paramsFound++;
 				digitsCount = 0;
@@ -276,6 +276,7 @@ void uChaosConsole_CheckCommand(uint8_t* buf)
         {
             printk("ERROR: Incorrect command\n");
         }
+        return;
     }
     else
     {
