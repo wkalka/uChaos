@@ -33,7 +33,6 @@ static uChaos_Fault_t _faults[] =
     {"hang_up", POWER, HANG_UP, 0, NULL}
 };
 static uChaos_Fault_t* _currentFault = NULL;
-uChaosSensor_t* _currentSensor = NULL; // todo: move it to uChaosSensor
 
 
 static void _uChaosConsole_ClearRxBuff(void)
@@ -72,7 +71,7 @@ void uChaosConsole_Init(void)
     {
         if (_faults[i].paramsNbr > 0)
         {
-            _faults[i].params = (uint32_t*)k_calloc(sizeof(uint32_t) * _faults[i].paramsNbr);
+            _faults[i].params = (uint32_t*)k_calloc(_faults[i].paramsNbr, sizeof(uint32_t));
         }
     }
 
@@ -171,8 +170,8 @@ bool uChaosConsole_SearchForSensorName(uint8_t* buf)
     {
         if (strcmp((uChaosSensor_GetSensors() + i)->name, buf) == 0)
         {
-            _currentSensor = (uChaosSensor_GetSensors() + i);
-            printk("Sensor recognized: %s\n", (const char*)_currentSensor->name);
+            uChaosSensor_SetCurrentSensor((uChaosSensor_GetSensors() + i));
+            printk("Sensor recognized: %s\n", (const char*)(uChaosSensor_GetSensors() + i)->name);
             return true;
         }
     }
@@ -234,13 +233,13 @@ bool uChaosConsole_ParseCommand(uint8_t* buf, uint8_t* index)
 		}
 		i++;
         (*index)++;
-		if (*index == UCHAOS_CONSOLE_MSG_SIZE) { break; } // todo: not compare to UCHAOS_CONSOLE_MSG_SIZE
+		if (*index == UCHAOS_CONSOLE_MSG_SIZE) { break; }
 	}
 
 	if (paramsFound ==_currentFault->paramsNbr)
     {
-        uChaosSensor_SetFault(_currentSensor, _currentFault);
-        _currentSensor = NULL;
+        uChaosSensor_SetFault(_currentFault);
+        uChaosSensor_SetCurrentSensor(NULL);
         _currentFault = NULL;
         return true;
     }
@@ -275,12 +274,13 @@ void uChaosConsole_CheckCommand(uint8_t* buf)
         if (!uChaosConsole_ParseCommand(&buf[i], &i))
         {
             printk("ERROR: Incorrect command\n");
+            return;
         }
-        return;
     }
     else
     {
         printk("ERROR: Incorrect command\n");
+        return;
     }
 }
 

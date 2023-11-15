@@ -5,6 +5,7 @@ extern int z_impl_sensor_channel_get(const struct device * dev, enum sensor_chan
 
 static uChaosSensor_t _uChaosSensors[UCHAOS_SENSORS_NUMBER];
 static uint8_t _uChaosSensorsCount;
+static uChaosSensor_t* _currentSensor;
 
 static uChaosSensor_DataFunc _uChaosSensor_DataFunctions[] = 
 {
@@ -116,23 +117,29 @@ uChaosSensor_t* uChaosSensor_GetSensor(const struct device* dev)
 }
 
 
-void uChaosSensor_SetFault(uChaosSensor_t* sensor, uChaos_Fault_t* fault)
+void uChaosSensor_SetCurrentSensor(uChaosSensor_t* sensor)
 {
-    if ( sensor->sensorFault.params != NULL )
+    _currentSensor = sensor;
+}
+
+
+void uChaosSensor_SetFault(uChaos_Fault_t* fault)
+{
+    if ( _currentSensor->sensorFault.params != NULL )
     {
-        k_free(sensor->sensorFault.params);
-        sensor->sensorFault.params = NULL;
+        k_free(_currentSensor->sensorFault.params);
+        _currentSensor->sensorFault.params = NULL;
     }
-    memset(&sensor->sensorFault, 0, sizeof(uChaos_Fault_t));
-    sensor->sensorFault.faultGroup = fault->faultGroup;
-    sensor->sensorFault.faultType = fault->faultType;
-    memset(sensor->sensorFault.name, 0, UCHAOS_FAULT_NAME_LEN);
-    snprintf(sensor->sensorFault.name, UCHAOS_FAULT_NAME_LEN, "%s", (const char*)fault->name);
-    sensor->sensorFault.params = (uint32_t*)k_calloc(fault->paramsNbr, sizeof(uint32_t));
-    sensor->sensorFault.paramsNbr = fault->paramsNbr;
-    for (uint8_t i = 0; i < sensor->sensorFault.paramsNbr; i++)
+    memset(&_currentSensor->sensorFault, 0, sizeof(uChaos_Fault_t));
+    _currentSensor->sensorFault.faultGroup = fault->faultGroup;
+    _currentSensor->sensorFault.faultType = fault->faultType;
+    memset(_currentSensor->sensorFault.name, 0, UCHAOS_FAULT_NAME_LEN);
+    snprintf(_currentSensor->sensorFault.name, UCHAOS_FAULT_NAME_LEN, "%s", (const char*)fault->name);
+    _currentSensor->sensorFault.params = (uint32_t*)k_calloc(fault->paramsNbr, sizeof(uint32_t));
+    _currentSensor->sensorFault.paramsNbr = fault->paramsNbr;
+    for (uint8_t i = 0; i < _currentSensor->sensorFault.paramsNbr; i++)
     {
-        sensor->sensorFault.params[i] = fault->params[i];
+        _currentSensor->sensorFault.params[i] = fault->params[i];
         fault->params[i] = 0;
     }
 }
