@@ -29,11 +29,8 @@ typedef enum
     OFFSET,
     STUCK_AT_VALUE,
     MEM_ALLOC,
-    MEM_FREE,
     LOAD_ADD,
-    LOAD_DEL,
     BATTERY,
-    BATTERY_STOP,
     RESTART,
     HANG_UP
 } uChaos_FaultType_t;

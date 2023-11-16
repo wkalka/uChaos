@@ -27,7 +27,7 @@ bool uChaosConsole_SearchForFault(uint8_t* buf);
 bool uChaosConsole_SearchForStringParam(uint8_t* destination, uint8_t* source, uint8_t* index);
 bool uChaosConsole_SearchForSensorName(uint8_t* buf);
 bool uChaosConsole_SearchForThreadName(uint8_t* buf);
-void uChaosSensor_SetFault(_currentFault);
+bool uChaosConsole_SetFault(uChaos_Fault_t* fault);
 bool uChaosConsole_ParseCommand(uint8_t* buf, uint8_t* index);
 void uChaosConsole_CheckCommand(uint8_t* buf);
 

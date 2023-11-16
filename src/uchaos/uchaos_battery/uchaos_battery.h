@@ -16,7 +16,6 @@
 #define BATTERY_DEEP_DISCHARGE_VOLTAGE      2.0f
 
 int uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *valp);
-void uChaosBattery_FaultSet(uChaos_Fault_t *fault);
-void uChaosBattery_FaultStop(void);
+void uChaosBattery_SetFault(uChaos_Fault_t* fault);
 
 #endif

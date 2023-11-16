@@ -22,13 +22,13 @@ static uChaos_Fault_t _faults[] =
     {"stuck_at_value", SENSOR, STUCK_AT_VALUE, 0, NULL},
 
     {"mem_alloc", MEMORY, MEM_ALLOC, 0, NULL},
-    {"mem_free", MEMORY, MEM_FREE, 0, NULL},
+    {"mem_free", MEMORY, NONE, 0, NULL},
 
     {"load_add", CPU, LOAD_ADD, 0, NULL},
-    {"load_del", CPU, LOAD_DEL, 0, NULL},
+    {"load_del", CPU, NONE, 0, NULL},
 
     {"battery", POWER, BATTERY, 3, NULL},
-    {"battery_stop", POWER, BATTERY_STOP, 0, NULL},
+    {"battery_stop", POWER, NONE, 0, NULL},
     {"restart", POWER, RESTART, 0, NULL},
     {"hang_up", POWER, HANG_UP, 0, NULL}
 };
@@ -343,12 +343,12 @@ void uChaosConsole_Help(void)
             "--CPU--\r\n"
             "- load_add <thread_name>\r\n"
             "- load_del <thread_name>\r\n"
-            // "- load_add <thread_name> <thread_priority> <thread_stack_size> <thread_sleep_ms>\r\n"
-            // "- load_del <thread_name>\r\n"
-            "--SUPPLY--\r\n"
-            "- battery <voltage_step_mV> <step_interval> <steps_number>\r\n"
-            "- battery_stop\r\n"
             "- restart\r\n"
             "- hang_up\r\n"
+            // "- load_add <thread_name> <thread_priority> <thread_stack_size> <thread_sleep_ms>\r\n"
+            // "- load_del <thread_name>\r\n"
+            "--POWER--\r\n"
+            "- battery <voltage_step_mV> <step_interval> <steps_number>\r\n"
+            "- battery_stop\r\n"
     );
 }

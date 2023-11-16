@@ -10,9 +10,7 @@
 #endif
 
 
-static int32_t _voltageStep_mV;
-static int32_t _stepInterval;
-static int32_t _stepsNumber;
+static uChaos_Fault_t _currentFault;
 
 
 static inline int _uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *valp)
@@ -49,46 +47,47 @@ int uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *val
 {
 	static uint32_t intervalCounter;
 	static uint32_t stepsCounter;
+	int32_t voltageStep_mV = _currentFault.params[0];
+	int32_t stepInterval = _currentFault.params[1];
+	int32_t stepsNumber = _currentFault.params[2];
 	int retVal = -ENOTSUP;
 
 	retVal = _uChaosBattery_RawToMillivoltsDt(spec, valp);
 
-	if ((_voltageStep_mV != 0) && (retVal == 0))
+	if (_currentFault.faultType != NONE)
 	{
-		uint32_t stepsMax = (_stepsNumber == 0) ? UINT32_MAX : _stepsNumber;
-		if ( _stepsNumber == 0) // tryb ciągły
+		if ((voltageStep_mV != 0) && (retVal == 0))
 		{
-			if (stepsCounter < stepsMax)
+			uint32_t stepsMax = (stepsNumber == 0) ? UINT32_MAX : stepsNumber;
+			if ( stepsNumber == 0)
 			{
-				if (intervalCounter < _stepInterval)
-				{ 
-					intervalCounter++;
-				}
-				else
+				if (stepsCounter < stepsMax)
 				{
-					stepsCounter++;
-					intervalCounter = 0;
+					if (intervalCounter < stepInterval)
+					{ 
+						intervalCounter++;
+					}
+					else
+					{
+						stepsCounter++;
+						intervalCounter = 0;
+					}
 				}
 			}
+			*valp = *valp - (stepsCounter * voltageStep_mV);
 		}
-		*valp = *valp - (stepsCounter * _voltageStep_mV);
 	}
 
 	return retVal;
 }
 
 
-void uChaosBattery_FaultSet(uChaos_Fault_t *fault)
+void uChaosBattery_SetFault(uChaos_Fault_t* fault)
 {
-	_voltageStep_mV = fault->params[0];
-	_stepInterval = fault->params[1];
-	_stepsNumber = fault->params[2];
-}
-
-
-void uChaosBattery_FaultStop(void)
-{
-	_voltageStep_mV = 0;
-	_stepInterval = 0;
-	_stepsNumber = 0;
+	_currentFault.faultType = fault->faultType;
+	for (uint8_t i = 0; i < fault->paramsNbr; i++)
+    {
+		_currentFault.params[i] = fault->params[i];
+        fault->params[i] = 0;
+    }
 }
