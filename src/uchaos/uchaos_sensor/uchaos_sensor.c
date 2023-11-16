@@ -33,27 +33,28 @@ static uint32_t _uChaosSensor_RandUIntFromRange(uint32_t low, uint32_t up)
 // }
 
 
-void uChaosSensor_Create(const char* name, const struct device* dev)
+bool uChaosSensor_Create(const char* name, const struct device* dev)
 {
     if ( name == NULL )
     {
-        printk("ERROR: Sensor name not find\n");
-        return;
+        printk("ERROR: Sensor name not find\r\n");
+        return false;
     }
     if ( dev == NULL )
     {
-        printk("ERROR: Sensor device binding problem\n");
-        return;
+        printk("ERROR: Sensor device binding problem\r\n");
+        return false;
     }
 
     if ( _uChaosSensorsCount < UCHAOS_MAX_SENSORS_NUMBER )
     {
         uChaosSensor_Init(name, dev);
+        return true;
     }
     else
     {
-        printk("ERROR: Max number of sensors created\n");
-        return;
+        printk("ERROR: Max number of sensors created\r\n");
+        return false;
     }
 }
 

@@ -64,7 +64,10 @@ int main(void)
     struct sensor_value sensorValue[3] = {0};
     double measurement[3] = {0};
 	const struct device *const adxl345 = DEVICE_DT_GET_ONE(adi_adxl345);
-    uChaosSensor_Init("adxl345", adxl345);
+    if (!uChaosSensor_Create("adxl345", adxl345))
+    {
+        return 0;
+    }
 #endif
 
 #ifdef DPS310
