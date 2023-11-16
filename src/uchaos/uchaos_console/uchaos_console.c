@@ -113,7 +113,7 @@ bool uChaosConsole_SearchForFault(uint8_t* buf)
         if (strcmp(_faults[i].name, buf) == 0)
         {
             _currentFault = &_faults[i];
-            printk("%s recognized\n", (const char*)_currentFault->name);
+            printk("%s recognized\r\n", (const char*)_currentFault->name);
             return true;
         }
     }
@@ -145,14 +145,12 @@ bool uChaosConsole_SearchForStringParam(uint8_t* destination, uint8_t* source, u
             retVal = uChaosConsole_SearchForThreadName(&destination[0]);
             break;
         }
-        
         case MEMORY:
         case POWER:
         {
             retVal = true;
             break;
         }
-
         default:
         {
             retVal = false;
@@ -171,7 +169,7 @@ bool uChaosConsole_SearchForSensorName(uint8_t* buf)
         if (strcmp((uChaosSensor_GetSensors() + i)->name, buf) == 0)
         {
             uChaosSensor_SetCurrentSensor((uChaosSensor_GetSensors() + i));
-            printk("Sensor recognized: %s\n", (const char*)(uChaosSensor_GetSensors() + i)->name);
+            printk("Sensor recognized: %s\r\n", (const char*)(uChaosSensor_GetSensors() + i)->name);
             return true;
         }
     }
@@ -191,6 +189,44 @@ bool uChaosConsole_SearchForThreadName(uint8_t* buf)
         // }
     }
     return false;
+}
+
+
+bool uChaosConsole_SetFault(uChaos_Fault_t* fault)
+{
+    if (fault == NULL)
+    {
+        printk("ERROR: Can not set current fault - null pointer\r\n");
+        return false;
+    }
+
+    switch (fault->faultGroup)
+    {
+        case SENSOR:
+        {
+            uChaosSensor_SetFault(_currentFault);
+            uChaosSensor_SetCurrentSensor(NULL);
+            break;
+        }
+        case MEMORY:
+        {
+            break;
+        }
+        case CPU:
+        {
+            break;
+        }
+        case POWER:
+        {
+            break;
+        }
+        default:
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 
@@ -238,12 +274,17 @@ bool uChaosConsole_ParseCommand(uint8_t* buf, uint8_t* index)
 
 	if (paramsFound ==_currentFault->paramsNbr)
     {
-        uChaosSensor_SetFault(_currentFault);
-        uChaosSensor_SetCurrentSensor(NULL);
-        _currentFault = NULL;
-        return true;
+        if (uChaosConsole_SetFault(_currentFault))
+        {
+            _currentFault = NULL;
+            return true;
+        }
+        return false;
     }
-	else { return false; }
+	else
+    { 
+        return false; 
+    }
 }
 
 
@@ -264,7 +305,7 @@ void uChaosConsole_CheckCommand(uint8_t* buf)
             uChaosConsole_Help();
             return;
         }
-        printk("ERROR: Incorrect command\n");
+        printk("ERROR: Incorrect command\r\n");
         return;
     }
     i++;
@@ -273,13 +314,13 @@ void uChaosConsole_CheckCommand(uint8_t* buf)
         i++;
         if (!uChaosConsole_ParseCommand(&buf[i], &i))
         {
-            printk("ERROR: Incorrect command\n");
+            printk("ERROR: Incorrect command\r\n");
             return;
         }
     }
     else
     {
-        printk("ERROR: Incorrect command\n");
+        printk("ERROR: Incorrect command\r\n");
         return;
     }
 }
