@@ -87,6 +87,11 @@ int uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *val
 			*valp = *valp - (stepsCounter * voltageStep_mV);
 		}
 	}
+	else
+	{
+		if (intervalCounter != 0) { intervalCounter = 0; }
+		if (stepsCounter != 0) { stepsCounter = 0; }
+	}
 
 	return retVal;
 }
