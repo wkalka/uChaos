@@ -11,6 +11,8 @@
 
 
 static uChaos_Fault_t _currentFault;
+static uint32_t _intervalCounter;
+static uint32_t _stepsCounter;
 
 
 static inline int _uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *valp)
@@ -53,8 +55,6 @@ void uChaosBattery_Init(void)
 
 int uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *valp)
 {
-	static uint32_t intervalCounter;
-	static uint32_t stepsCounter;
 	int retVal = -ENOTSUP;
 
 	retVal = _uChaosBattery_RawToMillivoltsDt(spec, valp);
@@ -67,30 +67,27 @@ int uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *val
 		if ((voltageStep_mV != 0) && (retVal == 0))
 		{
 			uint32_t stepsMax = (stepsNumber == 0) ? UINT32_MAX : stepsNumber;
-			if (stepsCounter <= stepsMax)
+			if (_stepsCounter <= stepsMax)
 			{
-				if (intervalCounter < stepInterval)
+				if (_intervalCounter < stepInterval)
 				{ 
-					intervalCounter++;
-					if (intervalCounter == stepInterval)
+					_intervalCounter++;
+					if (_intervalCounter == stepInterval)
 					{
-						stepsCounter++;
-						intervalCounter = 0;
+						_stepsCounter++;
+						_intervalCounter = 0;
+						if (_stepsCounter > stepsMax)
+						{
+							_stepsCounter = 0;
+							_currentFault.faultType = NONE;
+							return retVal;
+						}
 					}
 				}
 			}
-			else
-			{
-				stepsCounter = 0;
-				_currentFault.faultType = NONE;
-			}
-			*valp = *valp - (stepsCounter * voltageStep_mV);
+			*valp = *valp - (_stepsCounter * voltageStep_mV);
+			printk("_stepsCounter = %d\r\n", _stepsCounter);
 		}
-	}
-	else
-	{
-		if (intervalCounter != 0) { intervalCounter = 0; }
-		if (stepsCounter != 0) { stepsCounter = 0; }
 	}
 
 	return retVal;
@@ -104,6 +101,8 @@ void uChaosBattery_SetFault(uChaos_Fault_t* fault)
 		_currentFault.params = (uint32_t*)k_calloc(fault->paramsNbr, sizeof(uint32_t));
 	}
 	_currentFault.faultType = (fault->faultType == BATTERY_STOP) ? NONE : fault->faultType;
+	_intervalCounter = 0;
+	_stepsCounter = 0;
 	for (uint8_t i = 0; i < fault->paramsNbr; i++)
     {
 		_currentFault.params[i] = fault->params[i];

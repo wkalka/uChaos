@@ -33,8 +33,13 @@ int main(void)
 	printk("Demo Application start\n\n");
 
     uChaosConsole_Init();
-    // uChaosCPU_Init();
-    // uChaosBattery_Init();
+
+#ifdef CPU_LOAD   
+    uChaosCPU_Init();
+#endif
+#ifdef ADC_VBATT
+    uChaosBattery_Init();
+#endif
 
 #ifdef ADC_VBATT
     int32_t val_mv;
@@ -80,7 +85,6 @@ int main(void)
 	
 	while (1)
     {
-
 #ifdef ADC_VBATT
         adc_sequence_init_dt(&adc_channel, &sequence);
         error = adc_read(adc_channel.dev, &sequence);
@@ -122,5 +126,6 @@ int main(void)
         k_sleep(K_MSEC(SLEEP_MS));
 #endif        
 	}
+
 	return 0;
 }
