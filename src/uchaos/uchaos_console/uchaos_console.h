@@ -12,6 +12,7 @@
 #include "../uchaos_defs.h"
 #include "../uchaos_sensor/uchaos_sensor.h"
 #include "../uchaos_cpu/uchaos_cpu.h"
+#include "../uchaos_battery/uchaos_battery.h"
 
 
 #define UART_DEV_NODE                   DT_NODELABEL(uart0)

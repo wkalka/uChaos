@@ -22,13 +22,13 @@ static uChaos_Fault_t _faults[] =
     {"stuck_at_value", SENSOR, STUCK_AT_VALUE, 0, NULL},
 
     {"mem_alloc", MEMORY, MEM_ALLOC, 0, NULL},
-    {"mem_free", MEMORY, NONE, 0, NULL},
+    {"mem_free", MEMORY, MEM_FREE, 0, NULL},
 
     {"load_add", CPU, LOAD_ADD, 0, NULL},
-    {"load_del", CPU, NONE, 0, NULL},
+    {"load_del", CPU, LOAD_DEL, 0, NULL},
 
     {"battery", POWER, BATTERY, 3, NULL},
-    {"battery_stop", POWER, NONE, 0, NULL},
+    {"battery_stop", POWER, BATTERY_STOP, 0, NULL},
     {"restart", POWER, RESTART, 0, NULL},
     {"hang_up", POWER, HANG_UP, 0, NULL}
 };
@@ -126,7 +126,7 @@ bool uChaosConsole_SearchForStringParam(uint8_t* destination, uint8_t* source, u
 {
     uint8_t i = 0;
     bool retVal = false;
-    while ((i < UCHAOS_CONSOLE_MSG_SIZE) && (source[i] != ' ') && (source[i] != '\0'))
+    while ((i < UCHAOS_CONSOLE_MSG_SIZE) && (source[i] != ' ') && (source[i] != '\0') && (source[i] > DIGITS_ASCII_END))
     {
         destination[i] = source[i];
         i++;
@@ -138,11 +138,13 @@ bool uChaosConsole_SearchForStringParam(uint8_t* destination, uint8_t* source, u
         case SENSOR:
         {
             retVal = uChaosConsole_SearchForSensorName(&destination[0]);
+            i++;
             break;
         }
         case CPU:
         {
             retVal = uChaosConsole_SearchForThreadName(&destination[0]);
+            i++;
             break;
         }
         case MEMORY:
@@ -218,6 +220,7 @@ bool uChaosConsole_SetFault(uChaos_Fault_t* fault)
         }
         case POWER:
         {
+            uChaosBattery_SetFault(_currentFault);
             break;
         }
         default:
@@ -311,7 +314,6 @@ void uChaosConsole_CheckCommand(uint8_t* buf)
     i++;
     if (uChaosConsole_SearchForStringParam(&dataBuf[i], &buf[i], &i))
     {
-        i++;
         if (!uChaosConsole_ParseCommand(&buf[i], &i))
         {
             printk("ERROR: Incorrect command\r\n");
