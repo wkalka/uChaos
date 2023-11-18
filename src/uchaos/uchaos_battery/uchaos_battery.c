@@ -43,36 +43,46 @@ static inline int _uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spe
 }
 
 
+void uChaosBattery_Init(void)
+{
+	_currentFault.faultGroup = POWER;
+	_currentFault.faultType = NONE;
+	_currentFault.params = NULL;
+}
+
+
 int uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *valp)
 {
 	static uint32_t intervalCounter;
 	static uint32_t stepsCounter;
-	int32_t voltageStep_mV = _currentFault.params[0];
-	int32_t stepInterval = _currentFault.params[1];
-	int32_t stepsNumber = _currentFault.params[2];
 	int retVal = -ENOTSUP;
 
 	retVal = _uChaosBattery_RawToMillivoltsDt(spec, valp);
 
 	if (_currentFault.faultType != NONE)
 	{
+		int32_t voltageStep_mV = _currentFault.params[0];
+		int32_t stepInterval = _currentFault.params[1];
+		int32_t stepsNumber = _currentFault.params[2];
 		if ((voltageStep_mV != 0) && (retVal == 0))
 		{
 			uint32_t stepsMax = (stepsNumber == 0) ? UINT32_MAX : stepsNumber;
-			if ( stepsNumber == 0)
+			if (stepsCounter <= stepsMax)
 			{
-				if (stepsCounter < stepsMax)
-				{
-					if (intervalCounter < stepInterval)
-					{ 
-						intervalCounter++;
-					}
-					else
+				if (intervalCounter < stepInterval)
+				{ 
+					intervalCounter++;
+					if (intervalCounter == stepInterval)
 					{
 						stepsCounter++;
 						intervalCounter = 0;
 					}
 				}
+			}
+			else
+			{
+				stepsCounter = 0;
+				_currentFault.faultType = NONE;
 			}
 			*valp = *valp - (stepsCounter * voltageStep_mV);
 		}
@@ -84,7 +94,11 @@ int uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *val
 
 void uChaosBattery_SetFault(uChaos_Fault_t* fault)
 {
-	_currentFault.faultType = fault->faultType;
+	if (_currentFault.params == NULL)
+	{
+		_currentFault.params = (uint32_t*)k_calloc(fault->paramsNbr, sizeof(uint32_t));
+	}
+	_currentFault.faultType = (fault->faultType == BATTERY_STOP) ? NONE : fault->faultType;
 	for (uint8_t i = 0; i < fault->paramsNbr; i++)
     {
 		_currentFault.params[i] = fault->params[i];
