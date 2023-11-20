@@ -124,27 +124,18 @@ bool uChaosConsole_SearchForFault(uint8_t* buf)
 
 bool uChaosConsole_SearchForStringParam(uint8_t* destination, uint8_t* source, uint8_t* index)
 {
-    uint8_t i = 0;
     bool retVal = false;
-    while ((i < UCHAOS_CONSOLE_MSG_SIZE) && (source[i] != ' ') && (source[i] != '\0') && (source[i] > DIGITS_ASCII_END))
-    {
-        destination[i] = source[i];
-        i++;
-        (*index)++;
-    }
 
     switch (_currentFault->faultGroup)
     {
         case SENSOR:
         {
-            retVal = uChaosConsole_SearchForSensorName(&destination[0]);
-            i++;
+            retVal = uChaosConsole_SearchForSensorName(destination, source, index);
             break;
         }
         case CPU:
         {
             retVal = uChaosConsole_SearchForThreadName(&destination[0]);
-            i++;
             break;
         }
         case MEMORY:
@@ -164,11 +155,18 @@ bool uChaosConsole_SearchForStringParam(uint8_t* destination, uint8_t* source, u
 }
 
 
-bool uChaosConsole_SearchForSensorName(uint8_t* buf)
+bool uChaosConsole_SearchForSensorName(uint8_t* destination, uint8_t* source, uint8_t* index)
 {
-    for (uint8_t i = 0;  i < UCHAOS_SENSORS_NUMBER; i++)
+    uint8_t i = 0;
+    while ((i < UCHAOS_CONSOLE_MSG_SIZE) && (source[i] != ' ') && (source[i] != '\0'))
     {
-        if (strcmp((uChaosSensor_GetSensors() + i)->name, buf) == 0)
+        destination[i] = source[i];
+        i++;
+        (*index)++;
+    }
+    for (i = 0;  i < UCHAOS_SENSORS_NUMBER; i++)
+    {
+        if (strcmp((uChaosSensor_GetSensors() + i)->name, &destination[0]) == 0)
         {
             uChaosSensor_SetCurrentSensor((uChaosSensor_GetSensors() + i));
             printk("Sensor recognized: %s\r\n", (const char*)(uChaosSensor_GetSensors() + i)->name);

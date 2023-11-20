@@ -14,14 +14,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// #define CPU_LOAD
 // #define ADC_VBATT
-#define ADXL345
+// #define ADXL345
+// #define DPS310
 
 #ifdef ADC_VBATT
 #define SLEEP_MS	5000
 #endif
 #ifdef ADXL345
-#define SLEEP_MS	5000
+#define SLEEP_MS	2000
 #endif
 #ifdef DPS310
 #define SLEEP_MS	2000
