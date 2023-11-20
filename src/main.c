@@ -14,11 +14,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-// #define CPU_LOAD
+#define CPU_LOAD
 // #define ADC_VBATT
 // #define ADXL345
 // #define DPS310
 
+#ifdef CPU_LOAD
+#define SLEEP_MS	5000
+#endif
 #ifdef ADC_VBATT
 #define SLEEP_MS	5000
 #endif
@@ -41,6 +44,10 @@ int main(void)
 #endif
 #ifdef ADC_VBATT
     uChaosBattery_Init();
+#endif
+
+#ifdef CPU_LOAD   
+    uChaosCPU_LoadAdd("Thread1");
 #endif
 
 #ifdef ADC_VBATT
@@ -126,7 +133,10 @@ int main(void)
         measurement = sensor_value_to_double(&sensorValue);
         printk("%d Temp = %f\r\n", counter++, measurement);
         k_sleep(K_MSEC(SLEEP_MS));
-#endif        
+#endif
+#ifdef CPU_LOAD
+        k_sleep(K_MSEC(SLEEP_MS));
+#endif
 	}
 
 	return 0;
