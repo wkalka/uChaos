@@ -46,10 +46,6 @@ int main(void)
     uChaosBattery_Init();
 #endif
 
-#ifdef CPU_LOAD   
-    uChaosCPU_LoadAdd("Thread1");
-#endif
-
 #ifdef ADC_VBATT
     int32_t val_mv;
     int error;

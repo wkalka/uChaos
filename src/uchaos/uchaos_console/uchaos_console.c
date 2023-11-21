@@ -1,7 +1,7 @@
 #include "uchaos_console.h"
 
 
-K_MSGQ_DEFINE(uChaosConsole_Msgq, UCHAOS_CONSOLE_MSG_SIZE, UCHAOS_CONSOLE_QUEUE_SIZE, 4);
+K_MSGQ_DEFINE(uChaosConsole_Msgq, UCHAOS_CONSOLE_MSG_SIZE, UCHAOS_CONSOLE_QUEUE_SIZE, UCHAOS_CONSOLE_QUEUE_ALIGN);
 K_THREAD_STACK_DEFINE(uChaosConsole_ThreadStackArea, UCHAOS_CONSOLE_THREAD_STACKSIZE);
 
 const struct device *const uChaosConsole_UART = DEVICE_DT_GET(UART_DEV_NODE);
@@ -135,7 +135,7 @@ bool uChaosConsole_SearchForStringParam(uint8_t* destination, uint8_t* source, u
         }
         case CPU:
         {
-            retVal = uChaosConsole_SearchForThreadName(&destination[0]);
+            retVal = uChaosConsole_SearchForThreadName(destination, source, index);
             break;
         }
         case MEMORY:
@@ -177,16 +177,23 @@ bool uChaosConsole_SearchForSensorName(uint8_t* destination, uint8_t* source, ui
 }
 
 
-bool uChaosConsole_SearchForThreadName(uint8_t* buf)
+bool uChaosConsole_SearchForThreadName(uint8_t* destination, uint8_t* source, uint8_t* index)
 {
-    for (uint8_t i = 0;  i < UCHAOS_SENSORS_NUMBER; i++)
+    uint8_t i = 0;
+    while ((i < UCHAOS_CONSOLE_MSG_SIZE) && (source[i] != ' ') && (source[i] != '\0'))
     {
-        // if (strcmp((uChaosSensor_GetSensors() + i)->name, buf) == 0)
-        // {
-        //     _currentSensor = (uChaosSensor_GetSensors() + i);
-        //     printk("Sensor recognized: %s\n", (const char*)_currentSensor->name);
-        //     return true;
-        // }
+        destination[i] = source[i];
+        i++;
+        (*index)++;
+    }
+    for (i = 0;  i < THREADS_NUMBER; i++)
+    {
+        if (strcmp(*(uChaosCPU_GetThreadsNames() + i), &destination[0]) == 0)
+        {
+            uChaosCPU_SetCurrentThread(*(uChaosCPU_GetThreadsNames() + i));
+            printk("Thread recognized: %s\n", *(uChaosCPU_GetThreadsNames() + i));
+            return true;
+        }
     }
     return false;
 }
@@ -214,6 +221,7 @@ bool uChaosConsole_SetFault(uChaos_Fault_t* fault)
         }
         case CPU:
         {
+            uChaosCPU_SetFault(_currentFault);
             break;
         }
         case POWER:

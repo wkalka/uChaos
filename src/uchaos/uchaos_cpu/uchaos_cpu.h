@@ -12,15 +12,11 @@
 #include "../uchaos_types.h"
 #include "../uchaos_defs.h"
 
-#define THREADS_NUMBER      2
-
 
 void uChaosCPU_Init(void);
-void uChaosCPU_Thread1(void* arg1, void* arg2, void* arg3);
-void uChaosCPU_Thread2(void* arg1, void* arg2, void* arg3);
-void uChaosCPU_ThreadFunction(uint32_t arg1, void* arg2, void* arg3);
 
-void uChaosCPU_LoadAdd(const char* threadName);
-void uChaosCPU_LoadDel(const char* threadName);
+char** uChaosCPU_GetThreadsNames(void);
+void uChaosCPU_SetCurrentThread(const char* threadName);
+void uChaosCPU_SetFault(uChaos_Fault_t* fault);
 
 #endif
