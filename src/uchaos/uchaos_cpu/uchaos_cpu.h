@@ -3,6 +3,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
+#include <zephyr/sys/time_units.h>
 
 #include <stdbool.h>
 #include <string.h>

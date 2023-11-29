@@ -18,7 +18,7 @@ static uChaos_Fault_t _faults[] =
     {"noise", SENSOR, NOISE, 2, NULL},
     {"data_anomaly", SENSOR, DATA_ANOMALY, 4, NULL},
     {"data_spike", SENSOR, DATA_SPIKE, 3, NULL},
-    {"offset", SENSOR, OFFSET, 1, NULL},
+    {"offset", SENSOR, OFFSET, 2, NULL},
     {"stuck_at_value", SENSOR, STUCK_AT_VALUE, 0, NULL},
 
     {"mem_alloc", MEMORY, MEM_ALLOC, 0, NULL},
