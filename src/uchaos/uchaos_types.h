@@ -8,7 +8,7 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/random/rand32.h>
 
-#include "uchaos_defs.h"
+#include "uchaos_config.h"
 
 typedef enum
 {

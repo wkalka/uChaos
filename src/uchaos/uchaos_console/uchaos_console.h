@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #include "../uchaos_types.h"
-#include "../uchaos_defs.h"
+#include "../uchaos_config.h"
 #include "../uchaos_sensor/uchaos_sensor.h"
 #include "../uchaos_cpu/uchaos_cpu.h"
 #include "../uchaos_battery/uchaos_battery.h"

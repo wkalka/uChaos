@@ -6,10 +6,10 @@
 #include <zephyr/drivers/adc.h>
 
 #include "../uchaos_types.h"
-#include "../uchaos_defs.h"
+#include "../uchaos_config.h"
 
 
-#ifdef UCHAOS
+#if UCHAOS
 #define adc_raw_to_millivolts_dt(a, b)   uChaosBattery_RawToMillivoltsDt(a, b)
 #endif
 

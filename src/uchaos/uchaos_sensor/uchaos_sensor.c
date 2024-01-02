@@ -46,7 +46,7 @@ bool uChaosSensor_Create(const char* name, const struct device* dev)
         return false;
     }
 
-    if ( _uChaosSensorsCount < UCHAOS_MAX_SENSORS_NUMBER )
+    if ( _uChaosSensorsCount < UCHAOS_SENSORS_NUMBER )
     {
         uChaosSensor_Init(name, dev);
         return true;

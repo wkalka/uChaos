@@ -12,10 +12,10 @@
 #include <stdio.h>
 
 #include "../uchaos_types.h"
-#include "../uchaos_defs.h"
+#include "../uchaos_config.h"
 #include "../uchaos_console/uchaos_console.h"
 
-#ifdef UCHAOS
+#if UCHAOS
 #define sensor_channel_get(a, b, c)   uChaosSensor_ChannelGet(a, b, c)
 #endif
 

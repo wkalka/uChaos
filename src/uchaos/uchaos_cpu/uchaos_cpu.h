@@ -1,17 +1,8 @@
 #ifndef UCHAOS_CPU_H 
 #define UCHAOS_CPU_H
 
-#include <zephyr/kernel.h>
-#include <zephyr/sys/printk.h>
-#include <zephyr/sys/time_units.h>
-
-#include <stdbool.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdint.h>
-
 #include "../uchaos_types.h"
-#include "../uchaos_defs.h"
+#include "../uchaos_config.h"
 
 
 void uChaosCPU_Init(void);
