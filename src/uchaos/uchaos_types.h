@@ -1,5 +1,5 @@
-#ifndef UCHAOS_CONFIG_H
-#define UCHAOS_CONFIG_H
+#ifndef UCHAOS_TYPES_H
+#define UCHAOS_TYPES_H
 
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
@@ -9,6 +9,10 @@
 #include <zephyr/random/rand32.h>
 
 #include "uchaos_config.h"
+
+#define UCHAOS_EOK                       0
+#define UCHAOS_EIO                       EIO
+#define UCHAOS_EINVAL                    EINVAL
 
 typedef enum
 {
