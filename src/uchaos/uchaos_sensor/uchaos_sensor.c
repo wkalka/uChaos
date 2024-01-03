@@ -402,8 +402,8 @@ static int _uChaosSensor_DataAnomaly(struct sensor_value* value, enum sensor_cha
             break;
 
         default:
-            retVal = -UCHAOS_EINVAL;
             printk("ERROR: Sensor type not handled\r\n");
+            retVal = -UCHAOS_EINVAL;
             break;
     }
 
