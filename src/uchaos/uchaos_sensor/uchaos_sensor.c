@@ -17,15 +17,16 @@ static uChaosSensor_t _uChaosSensors[UCHAOS_SENSORS_NUMBER];
 static uint8_t _uChaosSensorsCount;
 static uChaosSensor_t* _currentSensor;
 
-static bool _uChaosSensor_Connection(uChaosSensor_t* sensor);
-static void _uChaosSensor_Noise(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
-static void _uChaosSensor_DataAnomaly(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
-static void _uChaosSensor_DataSpike(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
-static void _uChaosSensor_Offset(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
-static void _uChaosSensor_StuckAtValue(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
+static int _uChaosSensor_Connection(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
+static int _uChaosSensor_Noise(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
+static int _uChaosSensor_DataAnomaly(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
+static int _uChaosSensor_DataSpike(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
+static int _uChaosSensor_Offset(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
+static int _uChaosSensor_StuckAtValue(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor);
 
 static uChaosSensor_DataFunc _uChaosSensor_DataFunctions[] = 
 {
+    _uChaosSensor_Connection,
     _uChaosSensor_Noise,
     _uChaosSensor_DataAnomaly,
     _uChaosSensor_DataSpike,
@@ -110,19 +111,15 @@ int uChaosSensor_ChannelGet(const struct device* dev, enum sensor_channel chan, 
 
     if (sensor->sensorFault.faultType != NONE)
     {
-        if (sensor->sensorFault.faultType == CONNECTION)
+        if (retVal == 0)
         {
-            if (_uChaosSensor_Connection(sensor))
-            {
-                return -EIO;
-            }
-        }
-        else
-        {
-            _uChaosSensor_DataFunctions[sensor->sensorFault.faultType - 2](val, chan, sensor);
+            retVal = _uChaosSensor_DataFunctions[sensor->sensorFault.faultType - 1](val, chan, sensor);
         }
     }
-    if (sensor->stuckAtValue) { memset(sensor->stuckValue, 0.0, (sizeof(sensor->stuckValue) / sizeof(sensor->stuckValue[0]))); }
+    else
+    {
+        if (sensor->stuckAtValue) { memset(sensor->stuckValue, 0.0, (sizeof(sensor->stuckValue) / sizeof(sensor->stuckValue[0]))); }
+    }
     sensor  = NULL;
 
     return retVal;
@@ -163,8 +160,12 @@ void uChaosSensor_SetFault(uChaos_Fault_t* fault)
 }
 
 
-static bool _uChaosSensor_Connection(uChaosSensor_t* sensor)
+static int _uChaosSensor_Connection(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
 {
+    ARG_UNUSED(value);
+    ARG_UNUSED(chan);
+
+    int retVal = UCHAOS_EOK;
     static uint32_t eventCounter;
     static uint32_t faultFrequency;
     uint32_t minFaultFreq = sensor->sensorFault.params[0];
@@ -173,7 +174,8 @@ static bool _uChaosSensor_Connection(uChaosSensor_t* sensor)
     if (minFaultFreq > maxFaultFreq)
     {
         printk("ERROR: Improper command params order\r\n");
-        return false;
+        retVal = -UCHAOS_EINVAL;
+        return retVal;
     }
 
     if (faultFrequency == 0)
@@ -184,17 +186,20 @@ static bool _uChaosSensor_Connection(uChaosSensor_t* sensor)
     while (eventCounter < faultFrequency)
     {
         eventCounter++;
-        return false;
+        return retVal;
     }
     
     eventCounter = 0;
     faultFrequency = 0;
-    return true;
+    retVal = -UCHAOS_EIO;
+
+    return retVal;
 }
 
 
-static void _uChaosSensor_NoiseSingleChannel(struct sensor_value* value, uChaosSensor_t* sensor)
+static int _uChaosSensor_NoiseSingleChannel(struct sensor_value* value, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
     double measurement = 0;
 
     uint32_t noiseMinPercent = sensor->sensorFault.params[0];
@@ -203,7 +208,8 @@ static void _uChaosSensor_NoiseSingleChannel(struct sensor_value* value, uChaosS
     if (noiseMinPercent > noiseMaxPercent)
     {
         printk("ERROR: Improper command params order\r\n");
-        return;
+        retVal = -UCHAOS_EINVAL;
+        return retVal;
     }
 
     uint32_t noisePercent = _uChaosSensor_RandUIntFromRange(noiseMinPercent, noiseMaxPercent);
@@ -211,11 +217,14 @@ static void _uChaosSensor_NoiseSingleChannel(struct sensor_value* value, uChaosS
 
     measurement = sensor_value_to_double(value) * noiseLevel;
     sensor_value_from_double(value, measurement);
+
+    return retVal;
 }
 
 
-static void _uChaosSensor_NoiseMultiChannel(struct sensor_value* value, uChaosSensor_t* sensor)
+static int _uChaosSensor_NoiseMultiChannel(struct sensor_value* value, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
     double measurements[3] = {0};
 
     uint32_t noiseMinPercent = sensor->sensorFault.params[0];
@@ -224,7 +233,7 @@ static void _uChaosSensor_NoiseMultiChannel(struct sensor_value* value, uChaosSe
     if (noiseMinPercent > noiseMaxPercent)
     {
         printk("ERROR: Improper command params order\r\n");
-        return;
+        return retVal = -UCHAOS_EINVAL;
     }
 
     uint32_t noisePercent = _uChaosSensor_RandUIntFromRange(noiseMinPercent, noiseMaxPercent);
@@ -235,17 +244,21 @@ static void _uChaosSensor_NoiseMultiChannel(struct sensor_value* value, uChaosSe
         measurements[i] = sensor_value_to_double(&value[i]) * noiseLevel;
         sensor_value_from_double(&value[i], measurements[i]);    
     }
+
+    return retVal;
 }
 
 
-static void _uChaosSensor_Noise(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
+static int _uChaosSensor_Noise(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
+
     switch(chan)
     {
         case SENSOR_CHAN_ACCEL_XYZ:
         case SENSOR_CHAN_GYRO_XYZ:
         case SENSOR_CHAN_MAGN_XYZ:
-            _uChaosSensor_NoiseMultiChannel(value, sensor);
+            retVal = _uChaosSensor_NoiseMultiChannel(value, sensor);
             break;
 
         case SENSOR_CHAN_ACCEL_X:
@@ -259,18 +272,22 @@ static void _uChaosSensor_Noise(struct sensor_value* value, enum sensor_channel 
         case SENSOR_CHAN_MAGN_Z:
         case SENSOR_CHAN_DIE_TEMP:
         case SENSOR_CHAN_AMBIENT_TEMP:
-            _uChaosSensor_NoiseSingleChannel(value, sensor);
+            retVal = _uChaosSensor_NoiseSingleChannel(value, sensor);
             break;
 
         default:
             printk("ERROR: Sensor type not handled\r\n");
+            retVal = -UCHAOS_EINVAL;
             break;
     }
+
+    return retVal;
 }
 
 
-static void _uChaosSensor_DataAnomalySingleChannel(struct sensor_value* value, uChaosSensor_t* sensor)
+static int _uChaosSensor_DataAnomalySingleChannel(struct sensor_value* value, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
     static uint32_t eventCounter;
     static uint32_t faultFrequency;
     double measurement = 0;
@@ -283,7 +300,8 @@ static void _uChaosSensor_DataAnomalySingleChannel(struct sensor_value* value, u
     if ((minFaultFreq > maxFaultFreq) || (anomalyMinPercent > anomalyMaxPercent))
     {
         printk("ERROR: Improper command params order\r\n");
-        return;
+        retVal = -UCHAOS_EINVAL;
+        return retVal;
     }
 
     if (faultFrequency == 0)
@@ -294,7 +312,7 @@ static void _uChaosSensor_DataAnomalySingleChannel(struct sensor_value* value, u
     while (eventCounter < faultFrequency)
     {
         eventCounter++;
-        return;
+        return retVal;
     }
     
     uint32_t anomalyPercent = _uChaosSensor_RandUIntFromRange(anomalyMinPercent, anomalyMaxPercent);
@@ -305,11 +323,14 @@ static void _uChaosSensor_DataAnomalySingleChannel(struct sensor_value* value, u
 
     eventCounter = 0;
     faultFrequency = 0;
+
+    return retVal;
 }
 
 
-static void _uChaosSensor_DataAnomalyMultiChannel(struct sensor_value* value, uChaosSensor_t* sensor)
+static int _uChaosSensor_DataAnomalyMultiChannel(struct sensor_value* value, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
     static uint32_t eventCounter;
     static uint32_t faultFrequency;
     double measurements[3] = {0};
@@ -323,7 +344,8 @@ static void _uChaosSensor_DataAnomalyMultiChannel(struct sensor_value* value, uC
     if ((minFaultFreq > maxFaultFreq) || (anomalyMinPercent > anomalyMaxPercent))
     {
         printk("ERROR: Improper command params order\r\n");
-        return;
+        retVal = -UCHAOS_EINVAL;
+        return retVal;
     }
 
     if (faultFrequency == 0)
@@ -334,7 +356,7 @@ static void _uChaosSensor_DataAnomalyMultiChannel(struct sensor_value* value, uC
     while (eventCounter < faultFrequency)
     {
         eventCounter++;
-        return;
+        return retVal;
     }
     
     uint32_t anomalyPercent = _uChaosSensor_RandUIntFromRange(anomalyMinPercent, anomalyMaxPercent);
@@ -348,11 +370,15 @@ static void _uChaosSensor_DataAnomalyMultiChannel(struct sensor_value* value, uC
 
     eventCounter = 0;
     faultFrequency = 0;
+    
+    return retVal;
 }
 
 
-static void _uChaosSensor_DataAnomaly(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
+static int _uChaosSensor_DataAnomaly(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
+
     switch(chan)
     {
         case SENSOR_CHAN_ACCEL_X:
@@ -366,36 +392,45 @@ static void _uChaosSensor_DataAnomaly(struct sensor_value* value, enum sensor_ch
         case SENSOR_CHAN_MAGN_Z:
         case SENSOR_CHAN_DIE_TEMP:
         case SENSOR_CHAN_AMBIENT_TEMP:
-            _uChaosSensor_DataAnomalySingleChannel(value, sensor);
+            retVal = _uChaosSensor_DataAnomalySingleChannel(value, sensor);
             break;
 
         case SENSOR_CHAN_ACCEL_XYZ:
         case SENSOR_CHAN_GYRO_XYZ:
         case SENSOR_CHAN_MAGN_XYZ:
-            _uChaosSensor_DataAnomalyMultiChannel(value, sensor);
+            retVal = _uChaosSensor_DataAnomalyMultiChannel(value, sensor);
             break;
 
         default:
+            retVal = -UCHAOS_EINVAL;
             printk("ERROR: Sensor type not handled\r\n");
             break;
     }
+
+    return retVal;
 }
 
 
-static void _uChaosSensor_DataSpikeSingleChannel(struct sensor_value* value, uChaosSensor_t* sensor)
+static int _uChaosSensor_DataSpikeSingleChannel(struct sensor_value* value, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
 
+    return retVal;
 }
 
 
-static void _uChaosSensor_DataSpikeMultiChannel(struct sensor_value* value, uChaosSensor_t* sensor)
+static int _uChaosSensor_DataSpikeMultiChannel(struct sensor_value* value, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
 
+    return retVal;
 }
 
 
-static void _uChaosSensor_DataSpike(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
+static int _uChaosSensor_DataSpike(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
+
     switch(chan)
     {
         case SENSOR_CHAN_ACCEL_X:
@@ -409,24 +444,28 @@ static void _uChaosSensor_DataSpike(struct sensor_value* value, enum sensor_chan
         case SENSOR_CHAN_MAGN_Z:
         case SENSOR_CHAN_DIE_TEMP:
         case SENSOR_CHAN_AMBIENT_TEMP:
-            _uChaosSensor_DataSpikeSingleChannel(value, sensor);
+            retVal = _uChaosSensor_DataSpikeSingleChannel(value, sensor);
             break;
 
         case SENSOR_CHAN_ACCEL_XYZ:
         case SENSOR_CHAN_GYRO_XYZ:
         case SENSOR_CHAN_MAGN_XYZ:
-            _uChaosSensor_DataSpikeMultiChannel(value, sensor);
+            retVal = _uChaosSensor_DataSpikeMultiChannel(value, sensor);
             break;
 
         default:
             printk("ERROR: Sensor type not handled\r\n");
+            retVal = -UCHAOS_EINVAL;
             break;
     }
+
+    return retVal;
 }
 
 
-static void _uChaosSensor_OffsetSingleChannel(struct sensor_value* value, uChaosSensor_t* sensor)
+static int _uChaosSensor_OffsetSingleChannel(struct sensor_value* value, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
     double measurement = 0;
 
     uint32_t offsetDirection = sensor->sensorFault.params[0];
@@ -435,7 +474,8 @@ static void _uChaosSensor_OffsetSingleChannel(struct sensor_value* value, uChaos
     if (offsetPercent <= 0)
     {
         printk("ERROR: Improper command params order\r\n");
-        return;
+        retVal = -UCHAOS_EINVAL;
+        return retVal;
     }
 
     int8_t direction = (offsetDirection == 0) ? 1 : -1;
@@ -445,11 +485,14 @@ static void _uChaosSensor_OffsetSingleChannel(struct sensor_value* value, uChaos
     double offset  = measurement * offsetLevel;
     measurement = measurement + (direction * offset);
     sensor_value_from_double(value, measurement); 
+
+    return retVal;
 }
 
 
-static void _uChaosSensor_OffsetMultiChannel(struct sensor_value* value, uChaosSensor_t* sensor)
+static int _uChaosSensor_OffsetMultiChannel(struct sensor_value* value, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
     double measurements[3] = {0};
 
     uint32_t offsetDirection = sensor->sensorFault.params[0];
@@ -458,7 +501,8 @@ static void _uChaosSensor_OffsetMultiChannel(struct sensor_value* value, uChaosS
     if (offsetPercent <= 0)
     {
         printk("ERROR: Improper command params order\r\n");
-        return;
+        retVal = -UCHAOS_EINVAL;
+        return retVal;
     }
 
     int8_t direction = (offsetDirection == 0) ? 1 : -1;
@@ -470,12 +514,16 @@ static void _uChaosSensor_OffsetMultiChannel(struct sensor_value* value, uChaosS
         double offset  = measurements[i] * offsetLevel;
         measurements[i] = measurements[i] + (direction * offset);
         sensor_value_from_double(&value[i], measurements[i]);    
-    } 
+    }
+
+    return retVal;
 }
 
 
-static void _uChaosSensor_Offset(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
+static int _uChaosSensor_Offset(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
+
     switch(chan)
     {
         case SENSOR_CHAN_ACCEL_X:
@@ -489,19 +537,22 @@ static void _uChaosSensor_Offset(struct sensor_value* value, enum sensor_channel
         case SENSOR_CHAN_MAGN_Z:
         case SENSOR_CHAN_DIE_TEMP:
         case SENSOR_CHAN_AMBIENT_TEMP:
-            _uChaosSensor_OffsetSingleChannel(value, sensor);
+            retVal = _uChaosSensor_OffsetSingleChannel(value, sensor);
             break;
 
         case SENSOR_CHAN_ACCEL_XYZ:
         case SENSOR_CHAN_GYRO_XYZ:
         case SENSOR_CHAN_MAGN_XYZ:
-            _uChaosSensor_OffsetMultiChannel(value, sensor);
+            retVal = _uChaosSensor_OffsetMultiChannel(value, sensor);
             break;
 
         default:
             printk("ERROR: Sensor type not handled\r\n");
+            retVal = -UCHAOS_EINVAL;
             break;
     }
+
+    return retVal;
 }
 
 
@@ -535,8 +586,10 @@ static void _uChaosSensor_StuckAtValueMultiChannel(struct sensor_value* value, u
 }
 
 
-static void _uChaosSensor_StuckAtValue(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
+static int _uChaosSensor_StuckAtValue(struct sensor_value* value, enum sensor_channel chan, uChaosSensor_t* sensor)
 {
+    int retVal = UCHAOS_EOK;
+
     switch(chan)
     {
         case SENSOR_CHAN_ACCEL_X:
@@ -561,6 +614,9 @@ static void _uChaosSensor_StuckAtValue(struct sensor_value* value, enum sensor_c
 
         default:
             printk("ERROR: Sensor type not handled\r\n");
+            retVal = -UCHAOS_EINVAL;
             break;
     }
+
+    return retVal;
 }

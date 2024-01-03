@@ -20,7 +20,7 @@ typedef struct
 } uChaosSensor_t;
 
 
-typedef void (*uChaosSensor_DataFunc)(struct sensor_value* sensorValue, enum sensor_channel chan, uChaosSensor_t* sensor);
+typedef int (*uChaosSensor_DataFunc)(struct sensor_value* sensorValue, enum sensor_channel chan, uChaosSensor_t* sensor);
 
 bool uChaosSensor_Create(const char* name, const struct device* dev);
 
