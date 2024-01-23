@@ -25,6 +25,11 @@
 		compatible = "adi,adxl345";
 		reg = <0x53>;
 	};
+	dps310@77 {
+		status = "okay";
+		compatible = "infineon,dps310";
+		reg = <0x77>;
+	};
 };
 
 &adc {
