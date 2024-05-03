@@ -66,7 +66,7 @@ int uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *val
 		int32_t stepsNumber = _currentFault.params[2];
 		if ((voltageStep_mV != 0) && (retVal == 0))
 		{
-			uint32_t stepsMax = (stepsNumber == 0) ? UINT32_MAX : stepsNumber;
+			uint32_t stepsMax = (stepsNumber == 0) ? (UINT32_MAX - 1) : stepsNumber;
 			if (_stepsCounter <= stepsMax)
 			{
 				if (_intervalCounter < stepInterval)
@@ -75,10 +75,10 @@ int uChaosBattery_RawToMillivoltsDt(const struct adc_dt_spec *spec, int32_t *val
 					if (_intervalCounter == stepInterval)
 					{
 						_stepsCounter++;
-						_intervalCounter = 0;
+						_intervalCounter = 1;
 						if (_stepsCounter > stepsMax)
 						{
-							_stepsCounter = 0;
+							_stepsCounter = 1;
 							_currentFault.faultType = NONE;
 							return retVal;
 						}
@@ -102,7 +102,7 @@ void uChaosBattery_SetFault(uChaos_Fault_t* fault)
 	}
 	_currentFault.faultType = (fault->faultType == BATTERY_STOP) ? NONE : fault->faultType;
 	_intervalCounter = 0;
-	_stepsCounter = 0;
+	_stepsCounter = 1;
 	for (uint8_t i = 0; i < fault->paramsNbr; i++)
     {
 		_currentFault.params[i] = fault->params[i];
